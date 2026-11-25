@@ -1,0 +1,84 @@
+:root,
+html[data-theme="warm-kitchen"] {
+  color-scheme: light;
+  --background: #fcf8f3;
+  --foreground: #261b14;
+  --card: #fffdf9;
+  --card-foreground: #261b14;
+  --popover: #fffdf9;
+  --popover-foreground: #261b14;
+  --primary: #c0562b;
+  --primary-foreground: #fffaf5;
+  --secondary: #e7efe4;
+  --secondary-foreground: #25402a;
+  --muted: #f3ebe0;
+  --muted-foreground: #6b5a4e;
+  --accent: #3f6a46;
+  --accent-foreground: #f8fbf7;
+  --destructive: #c4362c;
+  --destructive-foreground: #fff8f7;
+  --border: #e5d8c8;
+  --input: #dccbb8;
+  --ring: #c0562b;
+  --scrollbar-track: #f3ebe0;
+  --scrollbar-thumb: #bfa995;
+
+  accent-color: var(--primary);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+html[data-theme="dark-espresso"] {
+  color-scheme: dark;
+  --background: #17110e;
+  --foreground: #f6ede4;
+  --card: #211915;
+  --card-foreground: #f6ede4;
+  --popover: #261d18;
+  --popover-foreground: #f6ede4;
+  --primary: #e07a4f;
+  --primary-foreground: #1b110c;
+  --secondary: #2d231d;
+  --secondary-foreground: #ead8c7;
+  --muted: #29201b;
+  --muted-foreground: #b8a496;
+  --accent: #7ca87f;
+  --accent-foreground: #111b12;
+  --destructive: #e05a4e;
+  --destructive-foreground: #1f0c0b;
+  --border: #382b23;
+  --input: #47372d;
+  --ring: #e07a4f;
+  --scrollbar-track: #211915;
+  --scrollbar-thumb: #695447;
+
+  accent-color: var(--primary);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+html[data-theme="fresh-matcha"] {
+  color-scheme: light;
+  --background: #f4f8f2;
+  --foreground: #19261b;
+  --card: #fbfdf9;
+  --card-foreground: #19261b;
+  --popover: #fbfdf9;
+  --popover-foreground: #19261b;
+  --primary: #3b7a4b;
+  --primary-foreground: #f6fbf7;
+  --secondary: #e2eedd;
+  --secondary-foreground: #203c26;
+  --muted: #e9f1e5;
+  --muted-foreground: #546a57;
+  --accent: #b85e35;
+  --accent-foreground: #fff9f5;
+  --destructive: #c4362c;
+  --destructive-foreground: #fff8f7;
+  --border: #d2e1cc;
+  --input: #c3d6bc;
+  --ring: #3b7a4b;
+  --scrollbar-track: #e9f1e5;
+  --scrollbar-thumb: #9ab393;
+
+  accent-color: var(--primary);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
