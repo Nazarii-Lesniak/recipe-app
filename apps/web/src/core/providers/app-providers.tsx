@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { ThemeProvider } from "next-themes";
 import { type ReactNode, useEffect, useState } from "react";
 import { Toaster } from "sonner";
+import { AuthModal } from "@/features/auth-modal/ui/auth-modal";
 import { TooltipProvider } from "@/shared/ui";
 
 function OfflineBanner() {
@@ -71,6 +72,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <TooltipProvider delayDuration={200}>
           <OfflineBanner />
           {children}
+          <AuthModal />
           <Toaster richColors position="bottom-right" />
         </TooltipProvider>
       </QueryClientProvider>
