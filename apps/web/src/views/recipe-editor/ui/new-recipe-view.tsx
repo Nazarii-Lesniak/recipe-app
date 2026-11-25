@@ -2,8 +2,9 @@
 
 import type { RecipeInput } from "@recipes/domain";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import type { CategoryDto } from "@/entities/recipe/server/recipe-service";
+import { AiImportPanel } from "@/features/ai-import/ui/ai-import-panel";
 import { RecipeForm } from "@/features/recipe-form/ui/recipe-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui";
 
@@ -11,20 +12,14 @@ export function NewRecipeView({
   categories,
   initialSharedUrl,
   initialSharedText,
-  renderAiImport,
 }: {
   categories: CategoryDto[];
   initialSharedUrl?: string;
   initialSharedText?: string;
-  renderAiImport?: (props: {
-    onParsed: (data: Partial<RecipeInput>, duplicateWarning: boolean) => void;
-    initialUrl?: string;
-    initialText?: string;
-  }) => ReactNode;
 }) {
   const t = useTranslations("editor");
   const hasShareTarget = Boolean(initialSharedUrl || initialSharedText);
-  const [activeTab, setActiveTab] = useState<string>(hasShareTarget && renderAiImport ? "ai" : "manual");
+  const [activeTab, setActiveTab] = useState<string>(hasShareTarget ? "ai" : "manual");
   const [importedValues, setImportedValues] = useState<Partial<RecipeInput> | undefined>(undefined);
   const [duplicateWarning, setDuplicateWarning] = useState(false);
 
@@ -48,19 +43,15 @@ export function NewRecipeView({
         </TabsContent>
 
         <TabsContent value="ai">
-          {renderAiImport ? (
-            renderAiImport({
-              initialUrl: initialSharedUrl,
-              initialText: initialSharedText,
-              onParsed: (data, isDuplicate) => {
-                setImportedValues(data);
-                setDuplicateWarning(isDuplicate);
-                setActiveTab("manual");
-              },
-            })
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("tabAiImport")}</p>
-          )}
+          <AiImportPanel
+            initialUrl={initialSharedUrl}
+            initialText={initialSharedText}
+            onParsed={(data, isDuplicate) => {
+              setImportedValues(data);
+              setDuplicateWarning(isDuplicate);
+              setActiveTab("manual");
+            }}
+          />
         </TabsContent>
       </Tabs>
     </main>
