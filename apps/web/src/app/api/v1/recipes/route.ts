@@ -1,7 +1,9 @@
 import { recipeInputSchema, searchRecipesQuerySchema } from "@recipes/domain";
+import { after } from "next/server";
 import { requireAuth } from "@/core/auth/session";
 import { createRecipe } from "@/entities/recipe/server/recipe-mutations";
 import { listPublicRecipes } from "@/entities/recipe/server/recipe-service";
+import { sendModerationTelegramNotification } from "@/features/moderation/server/telegram";
 import { created, forbidden, handleRouteError, ok, verifySameOrigin } from "@/shared/api/http";
 
 export async function GET(request: Request) {
@@ -25,6 +27,16 @@ export async function POST(request: Request) {
     const body: unknown = await request.json();
     const parsed = recipeInputSchema.parse(body);
     const inserted = await createRecipe(user.id, parsed);
+    if (inserted.visibility === "public" && inserted.status === "active") {
+      after(() =>
+        sendModerationTelegramNotification({
+          title: inserted.title,
+          username: user.username,
+          slug: inserted.slug,
+          locale: inserted.locale,
+        }),
+      );
+    }
     return created(inserted);
   } catch (error) {
     return handleRouteError(error);
