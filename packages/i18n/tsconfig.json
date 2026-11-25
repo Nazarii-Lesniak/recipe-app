@@ -1,0 +1,4 @@
+{
+  "extends": "@recipes/config/tsconfig.node.json",
+  "include": ["src/**/*.ts", "src/**/*.json"]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@recipes/i18n",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@recipes/config": "workspace:*",
+    "typescript": "^5.8.3"
+  }
+}
