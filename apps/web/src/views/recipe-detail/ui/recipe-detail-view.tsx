@@ -25,17 +25,16 @@ import { useAuthModalStore } from "@/features/auth-modal/model/use-auth-modal-st
 import { useServingsStore } from "@/features/scale-servings/model/use-servings-store";
 import { Badge, Button, Card, Checkbox, Separator } from "@/shared/ui";
 import { OnboardingHint } from "@/shared/ui/onboarding-hint";
+import { CookingMode } from "@/widgets/cooking-mode/ui/cooking-mode";
 
 export function RecipeDetailView({
   recipe,
   viewerId,
   viewerRole,
-  onOpenCookingMode,
 }: {
   recipe: RecipeDetailDto;
   viewerId?: string | null;
   viewerRole?: string | null;
-  onOpenCookingMode?: () => void;
 }) {
   const t = useTranslations("recipe");
   const tCommon = useTranslations("common");
@@ -57,6 +56,7 @@ export function RecipeDetailView({
   const [isSaved, setIsSaved] = useState(recipe.isSaved);
   const [saveCount, setSaveCount] = useState(recipe.saveCount);
   const [forking, setForking] = useState(false);
+  const [cookingModeOpen, setCookingModeOpen] = useState(false);
 
   const scaledIngredients = scaleRecipeIngredients(
     recipe.ingredients,
@@ -235,12 +235,10 @@ export function RecipeDetailView({
               <span>{t("forkAction")}</span>
             </Button>
 
-            {onOpenCookingMode ? (
-              <Button onClick={onOpenCookingMode} variant="default">
-                <Flame className="h-4 w-4" />
-                <span>{t("cookingMode")}</span>
-              </Button>
-            ) : null}
+            <Button onClick={() => setCookingModeOpen(true)} variant="default">
+              <Flame className="h-4 w-4" />
+              <span>{t("cookingMode")}</span>
+            </Button>
 
             {canEdit ? (
               <Button variant="ghost" asChild>
@@ -456,6 +454,17 @@ export function RecipeDetailView({
           </ol>
         </section>
       </div>
+
+      <CookingMode
+        open={cookingModeOpen}
+        onClose={() => setCookingModeOpen(false)}
+        recipe={recipe}
+        scaledIngredients={scaledIngredients}
+        checkedIngredients={checkedIngredients}
+        onToggleIngredient={(key, checked) =>
+          setCheckedIngredients((prev) => ({ ...prev, [key]: checked }))
+        }
+      />
     </main>
   );
 }
