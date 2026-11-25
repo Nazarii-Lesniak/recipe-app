@@ -1,10 +1,12 @@
 import { recipeInputSchema } from "@recipes/domain";
+import { after } from "next/server";
 import { requireAuth } from "@/core/auth/session";
 import {
   getRecipeByIdForEdit,
   softDeleteRecipe,
   updateRecipe,
 } from "@/entities/recipe/server/recipe-mutations";
+import { sendModerationTelegramNotification } from "@/features/moderation/server/telegram";
 import { forbidden, handleRouteError, notFound, ok, verifySameOrigin } from "@/shared/api/http";
 
 export async function GET(
@@ -37,6 +39,16 @@ export async function PATCH(
     const body: unknown = await request.json();
     const parsed = recipeInputSchema.parse(body);
     const updated = await updateRecipe(user.id, user.role, id, parsed);
+    if (updated.visibility === "public" && updated.status === "active") {
+      after(() =>
+        sendModerationTelegramNotification({
+          title: updated.title,
+          username: user.username,
+          slug: updated.slug,
+          locale: updated.locale,
+        }),
+      );
+    }
     return ok(updated);
   } catch (error) {
     return handleRouteError(error);
