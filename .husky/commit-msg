@@ -1,0 +1,4 @@
+if ! command -v node >/dev/null 2>&1; then
+  export PATH="$PATH:$HOME/AppData/Roaming/fnm/node-versions/v26.13.1/installation"
+fi
+./node_modules/.bin/commitlint --edit "$1"

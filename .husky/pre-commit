@@ -1,0 +1,8 @@
+if ! command -v node >/dev/null 2>&1; then
+  export PATH="$PATH:$HOME/AppData/Roaming/fnm/node-versions/v26.13.1/installation"
+fi
+if ./node_modules/.bin/biome --version >/dev/null 2>&1; then
+  ./node_modules/.bin/lint-staged
+else
+  echo "[pre-commit] Skipping lint-staged: Biome binary cannot start on this host (install Microsoft Visual C++ Redistributable x64)."
+fi
