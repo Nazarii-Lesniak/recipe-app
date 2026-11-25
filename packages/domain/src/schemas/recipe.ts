@@ -187,6 +187,7 @@ export const aiParsedRecipeSchema = z.object({
 export type RecipeIngredientInput = z.infer<typeof recipeIngredientInputSchema>;
 export type RecipeStepInput = z.infer<typeof recipeStepInputSchema>;
 export type RecipeInput = z.infer<typeof recipeInputSchema>;
+export type RecipeFormValues = z.input<typeof recipeInputSchema>;
 export type RecipePatchInput = z.infer<typeof recipePatchSchema>;
 export type SearchRecipesQuery = z.infer<typeof searchRecipesQuerySchema>;
 export type ModerationActionInput = z.infer<typeof moderationActionSchema>;
