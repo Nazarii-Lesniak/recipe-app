@@ -7,6 +7,8 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import type { ReactNode } from "react";
 import { routing } from "@/core/i18n/routing";
 import { AppProviders } from "@/core/providers/app-providers";
+import { Footer } from "@/widgets/footer/ui/footer";
+import { Header } from "@/widgets/header/ui/header";
 
 const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
@@ -58,7 +60,9 @@ export default async function LocaleLayout({
       <body className="flex min-h-dvh flex-col bg-background text-foreground antialiased">
         <NextIntlClientProvider messages={messages}>
           <AppProviders>
+            <Header />
             <div className="flex flex-1 flex-col">{children}</div>
+            <Footer />
           </AppProviders>
         </NextIntlClientProvider>
       </body>
