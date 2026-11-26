@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractReadableTextFromHtml,
   extractRecipeFromHtml,
   isSafeExternalUrl,
   parseIsoDurationMinutes,
@@ -85,6 +86,65 @@ describe("JSON-LD recipe extraction", () => {
 
   it("returns null for non-recipe JSON-LD", () => {
     expect(parseRecipeJsonLd({ "@type": "Article", headline: "Hello" })).toBeNull();
+  });
+});
+
+describe("extractReadableTextFromHtml", () => {
+  it("extracts multi-line recipe text from TikTok rehydration JSON instead of shell title", () => {
+    const html = `
+      <!doctype html>
+      <html>
+        <head><title>TikTok - Make Your Day</title></head>
+        <body>
+          <div id="app"></div>
+          <script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">
+            ${JSON.stringify({
+              __DEFAULT_SCOPE__: {
+                "webapp.video-detail": {
+                  itemInfo: {
+                    itemStruct: {
+                      contents: [
+                        { desc: "Трендовий салат з ТікТоку" },
+                        { desc: "Відварена картопля - 4 шт" },
+                        { desc: "Філе оселедця - 2 шт" },
+                      ],
+                    },
+                  },
+                },
+              },
+            })}
+          </script>
+        </body>
+      </html>
+    `;
+
+    const extracted = extractReadableTextFromHtml(html);
+    expect(extracted).toContain("Трендовий салат з ТікТоку");
+    expect(extracted).toContain("Філе оселедця - 2 шт");
+    expect(extracted).not.toContain("Make Your Day");
+  });
+
+  it("extracts og:description and meta description with decoded entities on SPA shells", () => {
+    const html = `
+      <html>
+        <head>
+          <meta content="Chef&#39;s &quot;Crispy&quot; Roast &amp; Gravy" property="og:title" />
+          <meta name="description" content="Ingredients: 500 g chicken, 2 tbsp olive oil. Bake for 40 min." />
+        </head>
+        <body><div id="root">Loading...</div></body>
+      </html>
+    `;
+
+    const extracted = extractReadableTextFromHtml(html);
+    expect(extracted).toContain(`Chef's "Crispy" Roast & Gravy`);
+    expect(extracted).toContain("Ingredients: 500 g chicken, 2 tbsp olive oil.");
+  });
+
+  it("keeps boilerplate-only shell pages short enough to reject", () => {
+    const html = `<html><head><title>TikTok - Make Your Day</title></head><body><script>window.x=1</script></body></html>`;
+    const extracted = extractReadableTextFromHtml(html);
+    expect(extracted).toBe("TikTok - Make Your Day");
+    expect(extracted.length).toBeLessThan(40);
   });
 });
 
