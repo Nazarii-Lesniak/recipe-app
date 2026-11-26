@@ -2,6 +2,7 @@ import {
   type AiImportRequest,
   aiLlmRecipeSchema,
   type AiParsedRecipe,
+  extractReadableTextFromHtml,
   extractRecipeFromHtml,
   isSafeExternalUrl,
   normalizeAiLlmRecipe,
@@ -13,16 +14,6 @@ import { findDuplicateSourceUrl } from "@/entities/recipe/server/recipe-mutation
 import { HttpError } from "@/shared/api/http";
 import { getAiModel } from "./ai-provider";
 
-function stripHtmlToText(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 12_000);
-}
-
 function buildSystemPrompt(targetLocale: "uk" | "en", keepOriginalLanguage: boolean): string {
   const categoryList = SEED_CATEGORIES.map((c) => c.slug).join(", ");
   const languageRule = keepOriginalLanguage
@@ -32,6 +23,9 @@ function buildSystemPrompt(targetLocale: "uk" | "en", keepOriginalLanguage: bool
   return [
     "You are a culinary data extractor.",
     "Extract a structured recipe strictly matching the JSON schema.",
+    "Extract ONLY facts explicitly present in the provided source text or image. NEVER invent, guess, or fabricate a recipe from site names (like TikTok or Instagram) or generic boilerplate.",
+    'If the source does not contain an actual recipe with ingredients and preparation instructions, return an empty title "", empty ingredients array [], and empty steps array [].',
+    "Preserve ingredient sections (e.g. 'Соус', 'Для тіста') in each ingredient's groupName when present.",
     languageRule,
     `Choose the best matching categorySlug from: ${categoryList}.`,
     "Use unit values strictly from: g, kg, ml, l, tsp, tbsp, cup, pcs, pinch, to_taste.",
@@ -199,8 +193,8 @@ export async function importRecipeFromSource(
       };
     }
 
-    const plainText = stripHtmlToText(html);
-    if (plainText.length < 20) {
+    const plainText = extractReadableTextFromHtml(html);
+    if (plainText.length < 40) {
       throw new HttpError("empty_page_content", 422);
     }
 

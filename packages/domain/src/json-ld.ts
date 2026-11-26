@@ -371,3 +371,185 @@ export function extractRecipeFromHtml(html: string): AiParsedRecipe | null {
 
   return null;
 }
+
+const NAMED_HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+function decodeHtmlEntities(text: string): string {
+  return text.replace(
+    /&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi,
+    (match, entity: string) => {
+      const lower = entity.toLowerCase();
+      if (lower in NAMED_HTML_ENTITIES) {
+        return NAMED_HTML_ENTITIES[lower] ?? match;
+      }
+      if (lower.startsWith("#x")) {
+        const code = Number.parseInt(lower.slice(2), 16);
+        return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+          ? String.fromCodePoint(code)
+          : match;
+      }
+      if (lower.startsWith("#")) {
+        const code = Number.parseInt(lower.slice(1), 10);
+        return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+          ? String.fromCodePoint(code)
+          : match;
+      }
+      return match;
+    },
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function extractTikTokDescription(html: string): string | null {
+  const rehydrationMatch = html.match(
+    /<script[^>]*id=["']__UNIVERSAL_DATA_FOR_REHYDRATION__["'][^>]*>([\s\S]*?)<\/script>/i,
+  );
+  if (rehydrationMatch?.[1]) {
+    try {
+      const root = asRecord(JSON.parse(rehydrationMatch[1]) as unknown);
+      const defaultScope = asRecord(root?.["__DEFAULT_SCOPE__"]);
+      const videoDetail = asRecord(defaultScope?.["webapp.video-detail"]);
+      const itemInfo = asRecord(videoDetail?.itemInfo);
+      const itemStruct = asRecord(itemInfo?.itemStruct);
+
+      if (Array.isArray(itemStruct?.contents)) {
+        const lines = itemStruct.contents
+          .map((entry) => {
+            const record = asRecord(entry);
+            return typeof record?.desc === "string" ? record.desc.trim() : "";
+          })
+          .filter((line) => line.length > 0);
+        const joined = lines.join("\n").trim();
+        if (joined.length >= 20) {
+          return joined;
+        }
+      }
+
+      if (typeof itemStruct?.desc === "string" && itemStruct.desc.trim().length >= 20) {
+        return itemStruct.desc.trim();
+      }
+
+      const shareMeta = asRecord(videoDetail?.shareMeta);
+      if (typeof shareMeta?.desc === "string" && shareMeta.desc.trim().length >= 20) {
+        return shareMeta.desc.trim();
+      }
+    } catch {
+      // Ignore malformed TikTok rehydration JSON and continue fallbacks
+    }
+  }
+
+  const sigiMatch = html.match(/<script[^>]*id=["']SIGI_STATE["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (sigiMatch?.[1]) {
+    try {
+      const root = asRecord(JSON.parse(sigiMatch[1]) as unknown);
+      const itemModule = asRecord(root?.ItemModule);
+      if (itemModule) {
+        for (const item of Object.values(itemModule)) {
+          const itemRecord = asRecord(item);
+          if (typeof itemRecord?.desc === "string" && itemRecord.desc.trim().length >= 20) {
+            return itemRecord.desc.trim();
+          }
+        }
+      }
+    } catch {
+      // Ignore malformed SIGI_STATE JSON
+    }
+  }
+
+  return null;
+}
+
+const RECIPE_META_KEYS = new Set([
+  "og:title",
+  "og:description",
+  "description",
+  "twitter:title",
+  "twitter:description",
+]);
+
+function readHtmlAttribute(tag: string, attrName: string): string | null {
+  const regex = new RegExp(`\\b${attrName}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i");
+  const match = tag.match(regex);
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+}
+
+function extractMetaDescriptions(html: string): string {
+  const collected: string[] = [];
+  const seen = new Set<string>();
+  const metaRegex = /<meta\b[^>]*>/gi;
+  let match = metaRegex.exec(html);
+
+  while (match !== null) {
+    const tag = match[0];
+    const key = (
+      readHtmlAttribute(tag, "property") ??
+      readHtmlAttribute(tag, "name") ??
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+    if (RECIPE_META_KEYS.has(key)) {
+      const rawContent = readHtmlAttribute(tag, "content");
+      const decoded = rawContent
+        ? decodeHtmlEntities(rawContent).replace(/\s+/g, " ").trim()
+        : "";
+      if (decoded && !seen.has(decoded)) {
+        seen.add(decoded);
+        collected.push(decoded);
+      }
+    }
+
+    match = metaRegex.exec(html);
+  }
+
+  return collected.join("\n");
+}
+
+/**
+ * Extracts recipe-bearing text from HTML, prioritizing TikTok video captions and
+ * OpenGraph/meta descriptions before falling back to stripped body text.
+ */
+export function extractReadableTextFromHtml(html: string, maxLength = 12_000): string {
+  const tiktokText = extractTikTokDescription(html);
+  if (tiktokText) {
+    return tiktokText.slice(0, maxLength);
+  }
+
+  const visibleText = decodeHtmlEntities(
+    html
+      .replace(/<(script|style|noscript|svg)\b[\s\S]*?<\/\1>/gi, " ")
+      .replace(/<[^>]+>/g, " "),
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const metaText = extractMetaDescriptions(html);
+  if (!metaText) {
+    return visibleText.slice(0, maxLength);
+  }
+
+  if (!visibleText) {
+    return metaText.slice(0, maxLength);
+  }
+
+  const normalizedVisible = visibleText.toLowerCase();
+  const hasUniqueMeta = metaText
+    .split("\n")
+    .some((line) => line.length >= 15 && !normalizedVisible.includes(line.toLowerCase()));
+
+  const combined = hasUniqueMeta ? `${metaText}\n\n${visibleText}` : visibleText;
+  return combined.trim().slice(0, maxLength);
+}
