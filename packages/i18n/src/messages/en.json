@@ -231,7 +231,17 @@
     "parsing": "Extracting recipe...",
     "successJsonLd": "Extracted instantly via Schema.org (JSON-LD)!",
     "successLlm": "Recipe extracted with AI!",
-    "notConfigured": "AI provider is not configured in .env. Schema.org URLs still work without an API key."
+    "notConfigured": "AI provider is not configured in .env. Schema.org URLs still work without an API key.",
+    "errorUrlFetchFailed": "Could not fetch the page from that URL.",
+    "errorEmptyPage": "Not enough recipe text was found on that page.",
+    "errorUnsafeUrl": "This URL cannot be fetched for security reasons.",
+    "errorInvalidImage": "Invalid image format. Try PNG, JPEG, or WebP.",
+    "errorRateLimited": "AI rate limit reached. Please try again in a minute.",
+    "errorTemporarilyUnavailable": "The AI service is temporarily overloaded. Please try again shortly.",
+    "errorAuth": "AI API key authentication failed. Check provider settings.",
+    "errorModelNotFound": "Configured AI model was not found. Check AI_MODEL settings.",
+    "errorParseFailed": "Could not extract a structured recipe from this source.",
+    "errorRequestRejected": "The AI provider rejected the recipe extraction request."
   },
   "profile": {
     "title": "Profile & Preferences",

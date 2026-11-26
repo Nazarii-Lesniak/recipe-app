@@ -1,12 +1,14 @@
 import {
   type AiImportRequest,
+  aiLlmRecipeSchema,
   type AiParsedRecipe,
-  aiParsedRecipeSchema,
   extractRecipeFromHtml,
   isSafeExternalUrl,
+  normalizeAiLlmRecipe,
   SEED_CATEGORIES,
 } from "@recipes/domain";
-import { generateText, Output } from "ai";
+import { APICallError, generateText, NoOutputGeneratedError, Output, RetryError } from "ai";
+import { ZodError } from "zod";
 import { findDuplicateSourceUrl } from "@/entities/recipe/server/recipe-mutations";
 import { HttpError } from "@/shared/api/http";
 import { getAiModel } from "./ai-provider";
@@ -37,6 +39,58 @@ function buildSystemPrompt(targetLocale: "uk" | "en", keepOriginalLanguage: bool
   ].join(" ");
 }
 
+function parseImageDataUrl(imageDataUrl: string): { mediaType: string; data: string } {
+  const match = imageDataUrl.trim().match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!match?.[1] || !match[2]) {
+    throw new HttpError("invalid_image_data_url", 400);
+  }
+  const data = match[2].replace(/\s+/g, "");
+  if (!data) {
+    throw new HttpError("invalid_image_data_url", 400);
+  }
+  return { mediaType: match[1], data };
+}
+
+/**
+ * Maps AI SDK / provider errors into user-actionable HTTP errors.
+ */
+export function mapAiExtractionError(error: unknown): HttpError {
+  if (error instanceof HttpError) {
+    return error;
+  }
+
+  const cause = RetryError.isInstance(error) ? error.lastError : error;
+
+  if (APICallError.isInstance(cause)) {
+    if (cause.statusCode === 401 || cause.statusCode === 403) {
+      return new HttpError("ai_auth_error", 502);
+    }
+    if (cause.statusCode === 404) {
+      return new HttpError("ai_model_not_found", 502);
+    }
+    if (cause.statusCode === 429) {
+      return new HttpError("ai_rate_limited", 429);
+    }
+    if (
+      cause.statusCode === 500 ||
+      cause.statusCode === 502 ||
+      cause.statusCode === 503 ||
+      cause.statusCode === 504
+    ) {
+      return new HttpError("ai_temporarily_unavailable", 503);
+    }
+    if (cause.statusCode === 400) {
+      return new HttpError("ai_request_rejected", 502);
+    }
+  }
+
+  if (NoOutputGeneratedError.isInstance(cause) || cause instanceof ZodError) {
+    return new HttpError("ai_parse_failed", 422);
+  }
+
+  return new HttpError("ai_parse_failed", 502);
+}
+
 async function runLlmExtraction(
   targetLocale: "uk" | "en",
   keepOriginalLanguage: boolean,
@@ -49,32 +103,40 @@ async function runLlmExtraction(
 
   const system = buildSystemPrompt(targetLocale, keepOriginalLanguage);
 
-  if (typeof content === "string") {
+  try {
+    if (typeof content === "string") {
+      const { output } = await generateText({
+        model,
+        system,
+        maxRetries: 1,
+        output: Output.object({ schema: aiLlmRecipeSchema }),
+        prompt: `Extract recipe from the following content:\n\n${content}`,
+      });
+      return normalizeAiLlmRecipe(output, targetLocale);
+    }
+
+    const { mediaType, data } = parseImageDataUrl(content.imageDataUrl);
     const { output } = await generateText({
       model,
       system,
-      output: Output.object({ schema: aiParsedRecipeSchema }),
-      prompt: `Extract recipe from the following content:\n\n${content}`,
+      maxRetries: 1,
+      output: Output.object({ schema: aiLlmRecipeSchema }),
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extract the full recipe from this screenshot image." },
+            { type: "file", data, mediaType },
+          ],
+        },
+      ],
     });
-    return output;
+
+    return normalizeAiLlmRecipe(output, targetLocale);
+  } catch (error) {
+    console.error("AI recipe extraction failed:", error);
+    throw mapAiExtractionError(error);
   }
-
-  const { output } = await generateText({
-    model,
-    system,
-    output: Output.object({ schema: aiParsedRecipeSchema }),
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: "Extract the full recipe from this screenshot image." },
-          { type: "image", image: content.imageDataUrl },
-        ],
-      },
-    ],
-  });
-
-  return output;
 }
 
 export async function importRecipeFromSource(
@@ -165,9 +227,7 @@ export async function importRecipeFromSource(
   }
 
   if (request.mode === "image" && request.imageDataUrl) {
-    if (!request.imageDataUrl.startsWith("data:image/")) {
-      throw new HttpError("invalid_image_data_url", 400);
-    }
+    parseImageDataUrl(request.imageDataUrl);
     const parsed = await runLlmExtraction(
       request.targetLocale,
       request.keepOriginalLanguage,

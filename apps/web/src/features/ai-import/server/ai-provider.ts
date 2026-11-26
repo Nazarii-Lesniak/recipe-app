@@ -12,7 +12,7 @@ export function getAiModel(): LanguageModel | null {
     const google = createGoogleGenerativeAI({
       apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
     });
-    return google(env.AI_MODEL ?? "gemini-2.5-flash");
+    return google(env.AI_MODEL ?? "gemini-3.5-flash-lite");
   }
 
   if (env.OPENAI_API_KEY) {

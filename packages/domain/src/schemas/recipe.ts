@@ -1,10 +1,12 @@
 import { z } from "zod";
 import {
   INGREDIENT_UNITS,
+  type Locale,
   RECIPE_DIFFICULTIES,
   RECIPE_LIMITS,
   RECIPE_STATUSES,
   RECIPE_VISIBILITIES,
+  SEED_CATEGORIES,
   SUPPORTED_LOCALES,
 } from "../constants";
 
@@ -184,6 +186,35 @@ export const aiParsedRecipeSchema = z.object({
     .max(RECIPE_LIMITS.stepsMax),
 });
 
+// Keep schema free of length/range constraints so Gemini constrained decoding stays within FSM limits.
+export const aiLlmRecipeSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  locale: z.enum(SUPPORTED_LOCALES),
+  baseServings: z.number(),
+  prepTimeMin: z.number(),
+  cookTimeMin: z.number(),
+  difficulty: z.enum(RECIPE_DIFFICULTIES),
+  categorySlug: z.string().nullable(),
+  tags: z.array(z.string()),
+  ingredients: z.array(
+    z.object({
+      groupName: z.string().nullable(),
+      name: z.string(),
+      amount: z.number().nullable(),
+      unit: z.enum(INGREDIENT_UNITS),
+      note: z.string().nullable(),
+      isScalable: z.boolean(),
+    }),
+  ),
+  steps: z.array(
+    z.object({
+      instruction: z.string(),
+      timerSeconds: z.number().nullable(),
+    }),
+  ),
+});
+
 export type RecipeIngredientInput = z.infer<typeof recipeIngredientInputSchema>;
 export type RecipeStepInput = z.infer<typeof recipeStepInputSchema>;
 export type RecipeInput = z.infer<typeof recipeInputSchema>;
@@ -193,3 +224,95 @@ export type SearchRecipesQuery = z.infer<typeof searchRecipesQuerySchema>;
 export type ModerationActionInput = z.infer<typeof moderationActionSchema>;
 export type AiImportRequest = z.infer<typeof aiImportRequestSchema>;
 export type AiParsedRecipe = z.infer<typeof aiParsedRecipeSchema>;
+export type AiLlmRecipeOutput = z.infer<typeof aiLlmRecipeSchema>;
+
+const VALID_CATEGORY_SLUGS = new Set(SEED_CATEGORIES.map((category) => category.slug));
+
+function clampInt(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function trimNullable(value: string | null | undefined, maxLength: number): string | null {
+  const trimmed = value?.trim().slice(0, maxLength) ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Clamps and validates raw unconstrained LLM extraction output against strict domain bounds.
+ */
+export function normalizeAiLlmRecipe(
+  raw: AiLlmRecipeOutput,
+  fallbackLocale: Locale,
+): AiParsedRecipe {
+  const categoryCandidate = raw.categorySlug?.trim() ?? "";
+  const categorySlug = VALID_CATEGORY_SLUGS.has(categoryCandidate) ? categoryCandidate : undefined;
+
+  const uniqueTags: string[] = [];
+  const seenTags = new Set<string>();
+  for (const tag of raw.tags) {
+    const cleaned = tag.trim().slice(0, 40);
+    if (cleaned && !seenTags.has(cleaned)) {
+      seenTags.add(cleaned);
+      uniqueTags.push(cleaned);
+      if (uniqueTags.length >= 10) {
+        break;
+      }
+    }
+  }
+
+  const ingredients = raw.ingredients
+    .map((item) => {
+      const name = item.name.trim().slice(0, RECIPE_LIMITS.ingredientNameMax);
+      if (!name) {
+        return null;
+      }
+      const amount =
+        typeof item.amount === "number" && Number.isFinite(item.amount) && item.amount > 0
+          ? Math.min(RECIPE_LIMITS.ingredientAmountMax, item.amount)
+          : null;
+      return {
+        groupName: trimNullable(item.groupName, 60),
+        name,
+        amount,
+        unit: item.unit,
+        note: trimNullable(item.note, 120),
+        isScalable: item.unit === "to_taste" ? false : Boolean(item.isScalable),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .slice(0, RECIPE_LIMITS.ingredientsMax);
+
+  const steps = raw.steps
+    .map((step) => {
+      const instruction = step.instruction.trim().slice(0, RECIPE_LIMITS.stepInstructionMax);
+      if (!instruction) {
+        return null;
+      }
+      const timerSeconds =
+        typeof step.timerSeconds === "number" &&
+        Number.isFinite(step.timerSeconds) &&
+        step.timerSeconds >= 0
+          ? Math.min(86_400, Math.round(step.timerSeconds))
+          : null;
+      return { instruction, timerSeconds };
+    })
+    .filter((step): step is NonNullable<typeof step> => step !== null)
+    .slice(0, RECIPE_LIMITS.stepsMax);
+
+  return aiParsedRecipeSchema.parse({
+    title: raw.title.trim().slice(0, RECIPE_LIMITS.titleMax),
+    description: raw.description.trim().slice(0, RECIPE_LIMITS.descriptionMax),
+    locale: SUPPORTED_LOCALES.includes(raw.locale) ? raw.locale : fallbackLocale,
+    baseServings: clampInt(raw.baseServings, 1, RECIPE_LIMITS.servingsMax, 4),
+    prepTimeMin: clampInt(raw.prepTimeMin, 0, 1440, 15),
+    cookTimeMin: clampInt(raw.cookTimeMin, 0, 1440, 30),
+    difficulty: raw.difficulty,
+    categorySlug,
+    tags: uniqueTags,
+    ingredients,
+    steps,
+  });
+}
