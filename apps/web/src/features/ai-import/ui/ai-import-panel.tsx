@@ -81,11 +81,25 @@ export function AiImportPanel({
 
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
-        if (err.error === "ai_not_configured") {
-          toast.error(t("notConfigured"));
-        } else {
-          toast.error(err.error ?? tCommon("errorTitle"));
-        }
+        const errorKeyMap = {
+          ai_not_configured: "notConfigured",
+          url_fetch_failed: "errorUrlFetchFailed",
+          empty_page_content: "errorEmptyPage",
+          unsafe_external_url: "errorUnsafeUrl",
+          invalid_image_data_url: "errorInvalidImage",
+          ai_rate_limited: "errorRateLimited",
+          ai_temporarily_unavailable: "errorTemporarilyUnavailable",
+          ai_auth_error: "errorAuth",
+          ai_model_not_found: "errorModelNotFound",
+          ai_parse_failed: "errorParseFailed",
+          ai_request_rejected: "errorRequestRejected",
+        } as const;
+
+        const messageKey =
+          err.error && err.error in errorKeyMap
+            ? errorKeyMap[err.error as keyof typeof errorKeyMap]
+            : null;
+        toast.error(messageKey ? t(messageKey) : tCommon("errorTitle"));
         return;
       }
 

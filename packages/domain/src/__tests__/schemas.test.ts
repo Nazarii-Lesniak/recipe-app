@@ -6,7 +6,12 @@ import {
   registerSchema,
   usernameSchema,
 } from "../schemas/auth";
-import { moderationActionSchema, recipeInputSchema } from "../schemas/recipe";
+import {
+  aiLlmRecipeSchema,
+  moderationActionSchema,
+  normalizeAiLlmRecipe,
+  recipeInputSchema,
+} from "../schemas/recipe";
 
 describe("auth schemas and username helpers", () => {
   it("validates allowed username characters and length", () => {
@@ -76,5 +81,77 @@ describe("recipe and moderation schemas", () => {
     expect(
       moderationActionSchema.safeParse({ action: "hidden", reason: "Спам або дублікат" }).success,
     ).toBe(true);
+  });
+
+  it("keeps aiLlmRecipeSchema unconstrained and normalizes output to domain bounds", () => {
+    const rawUnconstrained = {
+      title: `  ${"Б".repeat(150)}  `,
+      description: `  ${"О".repeat(1100)} `,
+      locale: "uk" as const,
+      baseServings: 250,
+      prepTimeMin: -5,
+      cookTimeMin: 2000,
+      difficulty: "easy" as const,
+      categorySlug: "non-existent-slug",
+      tags: [
+        "  домашнє ",
+        "домашнє",
+        " ",
+        ...Array.from({ length: 12 }, (_, idx) => `тег-${idx}-${"x".repeat(50)}`),
+      ],
+      ingredients: [
+        {
+          groupName: "   ",
+          name: "   ",
+          amount: 10,
+          unit: "g" as const,
+          note: null,
+          isScalable: true,
+        },
+        {
+          groupName: " Для тіста ",
+          name: " Сіль ",
+          amount: -2,
+          unit: "to_taste" as const,
+          note: " морська ",
+          isScalable: true,
+        },
+      ],
+      steps: [
+        { instruction: "   ", timerSeconds: 10 },
+        { instruction: " Перемішати все ", timerSeconds: -30 },
+      ],
+    };
+
+    expect(aiLlmRecipeSchema.safeParse(rawUnconstrained).success).toBe(true);
+    expect(
+      aiLlmRecipeSchema.safeParse({ ...rawUnconstrained, ingredients: [], steps: [] }).success,
+    ).toBe(true);
+
+    const normalized = normalizeAiLlmRecipe(rawUnconstrained, "en");
+    expect(normalized.title).toHaveLength(120);
+    expect(normalized.description).toHaveLength(1000);
+    expect(normalized.baseServings).toBe(100);
+    expect(normalized.prepTimeMin).toBe(0);
+    expect(normalized.cookTimeMin).toBe(1440);
+    expect(normalized.categorySlug).toBeUndefined();
+    expect(normalized.tags).toHaveLength(10);
+    expect(normalized.tags[0]).toBe("домашнє");
+    expect(normalized.tags[1]?.length).toBe(40);
+    expect(normalized.ingredients).toEqual([
+      {
+        groupName: "Для тіста",
+        name: "Сіль",
+        amount: null,
+        unit: "to_taste",
+        note: "морська",
+        isScalable: false,
+      },
+    ]);
+    expect(normalized.steps).toEqual([{ instruction: "Перемішати все", timerSeconds: null }]);
+
+    expect(() =>
+      normalizeAiLlmRecipe({ ...rawUnconstrained, ingredients: [] }, "uk"),
+    ).toThrow();
   });
 });
