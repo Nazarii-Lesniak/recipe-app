@@ -1,6 +1,7 @@
 "use client";
 
 import { scaleRecipeIngredients } from "@recipes/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   ChefHat,
@@ -45,6 +46,7 @@ export function RecipeDetailView({
   const tErrors = useTranslations("errors");
   const locale = useLocale();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: session } = useSession();
   const { openLogin } = useAuthModalStore();
 
@@ -98,6 +100,9 @@ export function RecipeDetailView({
         setIsSaved(!nextSaved);
         setSaveCount((c) => Math.max(0, c + (nextSaved ? -1 : 1)));
         toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["saved-recipe-ids"] });
+        void queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
       }
     } catch {
       setIsSaved(!nextSaved);

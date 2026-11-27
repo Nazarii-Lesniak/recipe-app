@@ -37,7 +37,14 @@ export function useToggleSaveRecipe() {
   const tErrors = useTranslations("errors");
 
   const mutation = useMutation({
-    mutationFn: async ({ recipeId, nextSaved }: { recipeId: string; nextSaved: boolean }) => {
+    mutationFn: async ({
+      recipeId,
+      nextSaved,
+    }: {
+      recipeId: string;
+      nextSaved: boolean;
+      onErrorRollback?: () => void;
+    }) => {
       const res = await fetch(`/api/v1/recipes/by-id/${recipeId}/save`, {
         method: nextSaved ? "POST" : "DELETE",
       });
@@ -63,10 +70,11 @@ export function useToggleSaveRecipe() {
 
       return { previous };
     },
-    onError: (error: unknown, _variables, context) => {
+    onError: (error: unknown, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(["saved-recipe-ids"], context.previous);
       }
+      variables.onErrorRollback?.();
       if (error && typeof error === "object" && "status" in error) {
         const errObj = error as { status?: number; code?: string };
         if (errObj.status === 401) {
@@ -84,12 +92,16 @@ export function useToggleSaveRecipe() {
     },
   });
 
-  const toggleSave = (recipeId: string, currentlySaved: boolean): boolean => {
+  const toggleSave = (
+    recipeId: string,
+    currentlySaved: boolean,
+    onErrorRollback?: () => void,
+  ): boolean => {
     if (!session?.user) {
       openLogin(tAuth("authRequiredForAction"));
       return false;
     }
-    mutation.mutate({ recipeId, nextSaved: !currentlySaved });
+    mutation.mutate({ recipeId, nextSaved: !currentlySaved, onErrorRollback });
     return true;
   };
 
