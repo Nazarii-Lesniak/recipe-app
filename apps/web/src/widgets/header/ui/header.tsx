@@ -75,18 +75,21 @@ export function Header({ initialModerationCount = 0 }: { initialModerationCount?
         <div className="flex items-center gap-6">
           <Link
             href="/"
-            className="flex items-center gap-2 font-editorial text-xl font-bold text-foreground"
+            onClick={(event) => {
+              if (pathname === "/") {
+                event.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
+            className="group flex items-center gap-2 font-editorial text-xl font-bold text-foreground transition-colors duration-200 hover:text-primary active:scale-[0.98]"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-transform duration-200 group-hover:scale-105 group-hover:shadow-sm">
               <UtensilsCrossed className="h-5 w-5" />
             </span>
             <span>{tCommon("appName")}</span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/">{tNav("catalog")}</Link>
-            </Button>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/search" className="gap-1.5">
                 <Search className="h-4 w-4" />
@@ -119,13 +122,6 @@ export function Header({ initialModerationCount = 0 }: { initialModerationCount?
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="default" className="hidden sm:inline-flex" asChild>
-            <Link href="/recipes/new">
-              <Plus className="h-4 w-4" />
-              <span>{tNav("addRecipe")}</span>
-            </Link>
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
