@@ -1,10 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "@/core/i18n/navigation";
 import type { CategoryDto, RecipeCardDto } from "@/entities/recipe/server/recipe-service";
 import { RecipeCard } from "@/entities/recipe/ui/recipe-card";
@@ -51,20 +51,32 @@ export function SearchView({ categories }: { categories: CategoryDto[] }) {
     setInputValue(qParam);
   }, [qParam]);
 
-  const updateParam = (key: string, value: string | null) => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (!value || value === "all" || value === "any") {
-      next.delete(key);
-    } else {
-      next.set(key, value);
-    }
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
-  };
+  const updateParam = useCallback(
+    (key: string, value: string | null) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (!value || value === "all" || value === "any") {
+        next.delete(key);
+      } else {
+        next.set(key, value);
+      }
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  useEffect(() => {
+    const trimmed = inputValue.trim();
+    if (trimmed === qParam) return;
+    const timer = window.setTimeout(() => {
+      updateParam("q", trimmed || null);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [inputValue, qParam, updateParam]);
 
   const resetAll = () => {
     setInputValue("");
-    router.replace(pathname);
+    router.replace(pathname, { scroll: false });
   };
 
   const handleSubmit = (event: FormEvent) => {
@@ -83,6 +95,7 @@ export function SearchView({ categories }: { categories: CategoryDto[] }) {
 
   const { data, isLoading } = useQuery<SearchResponse>({
     queryKey: ["recipes-search", apiParams.toString()],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const res = await fetch(`/api/v1/recipes?${apiParams.toString()}`);
       if (!res.ok) {

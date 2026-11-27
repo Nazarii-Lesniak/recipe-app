@@ -10,7 +10,7 @@ import {
   SUPPORTED_LOCALES,
 } from "@recipes/domain";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, HelpCircle, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
@@ -33,6 +33,9 @@ import {
   SelectValue,
   Switch,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@/shared/ui";
 import { useRecipeDraftAutosave } from "../model/use-draft-autosave";
 import { RecipeImageUploader } from "./recipe-image-uploader";
@@ -375,7 +378,13 @@ export function RecipeForm({
               }}
               placeholder="#швидко"
             />
-            <Button type="button" variant="outline" onClick={() => addTag(tagInput)}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={tagInput.trim().length === 0}
+              aria-label={t("addTagAriaLabel")}
+              onClick={() => addTag(tagInput)}
+            >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -483,23 +492,37 @@ export function RecipeForm({
                 {...register(`ingredients.${index}.note`)}
               />
               <div className="flex items-center justify-between gap-2">
-                <label
-                  htmlFor={`${idPrefix}-scalable-${index}`}
-                  className="flex items-center gap-1.5 text-xs"
-                >
-                  <Controller
-                    control={control}
-                    name={`ingredients.${index}.isScalable`}
-                    render={({ field: scaleField }) => (
-                      <Checkbox
-                        id={`${idPrefix}-scalable-${index}`}
-                        checked={scaleField.value}
-                        onCheckedChange={(v) => scaleField.onChange(Boolean(v))}
-                      />
-                    )}
-                  />
-                  <span>{t("scalableLabel")}</span>
-                </label>
+                <div className="flex items-center gap-1.5">
+                  <label
+                    htmlFor={`${idPrefix}-scalable-${index}`}
+                    className="flex cursor-pointer items-center gap-1.5 text-xs"
+                  >
+                    <Controller
+                      control={control}
+                      name={`ingredients.${index}.isScalable`}
+                      render={({ field: scaleField }) => (
+                        <Checkbox
+                          id={`${idPrefix}-scalable-${index}`}
+                          checked={scaleField.value}
+                          onCheckedChange={(v) => scaleField.onChange(Boolean(v))}
+                        />
+                      )}
+                    />
+                    <span>{t("scalableLabel")}</span>
+                  </label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t("scalableTooltip")}
+                        className="inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("scalableTooltip")}</TooltipContent>
+                  </Tooltip>
+                </div>
                 {ingredientArray.fields.length > 1 ? (
                   <Button
                     type="button"
@@ -561,15 +584,40 @@ export function RecipeForm({
                 aria-invalid={errors.steps?.[index]?.instruction ? "true" : "false"}
                 {...register(`steps.${index}.instruction`)}
               />
-              <Input
-                type="number"
-                min={0}
-                max={86400}
-                placeholder={t("timerPlaceholder")}
-                className="max-w-44"
-                {...register(`steps.${index}.timerSeconds`, {
-                  setValueAs: (v) => (v === "" || v === null ? null : Number(v)),
-                })}
+              <Controller
+                control={control}
+                name={`steps.${index}.timerSeconds`}
+                render={({ field: timerField }) => {
+                  const minutesValue =
+                    timerField.value && timerField.value > 0
+                      ? Math.round(timerField.value / 60)
+                      : "";
+                  return (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1440}
+                      step={1}
+                      placeholder={t("timerPlaceholder")}
+                      className="max-w-44"
+                      value={minutesValue}
+                      onBlur={timerField.onBlur}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          timerField.onChange(null);
+                          return;
+                        }
+                        const num = Number(raw);
+                        if (!Number.isFinite(num) || num <= 0) {
+                          timerField.onChange(null);
+                          return;
+                        }
+                        timerField.onChange(Math.min(1440, Math.round(num)) * 60);
+                      }}
+                    />
+                  );
+                }}
               />
             </div>
           ))}

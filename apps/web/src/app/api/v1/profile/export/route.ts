@@ -3,7 +3,7 @@ import { recipeIngredients, recipeSteps, recipes, savedRecipes } from "@recipes/
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/core/auth/session";
-import { badRequest, handleRouteError } from "@/shared/api/http";
+import { handleRouteError } from "@/shared/api/http";
 
 export async function GET() {
   try {
