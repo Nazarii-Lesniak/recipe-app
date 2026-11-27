@@ -155,7 +155,7 @@ export async function importRecipeFromSource(
       response = await fetch(request.url, {
         signal: AbortSignal.timeout(10_000),
         headers: {
-          "User-Agent": "SmakolykRecipeBot/1.0 (+https://recipes-app.local)",
+          "User-Agent": "ClovekeepRecipeBot/1.0 (+https://recipes-app.local)",
           Accept: "text/html,application/xhtml+xml",
         },
       });
