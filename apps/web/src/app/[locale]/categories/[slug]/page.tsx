@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/core/i18n/navigation";
-import { listCategories, listPublicRecipes } from "@/entities/recipe/server/recipe-service";
+import { listCachedPublicRecipes, listCategories } from "@/entities/recipe/server/recipe-service";
 import { RecipeCard } from "@/entities/recipe/ui/recipe-card";
 import { Button, Card } from "@/shared/ui";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,
@@ -25,9 +25,11 @@ export default async function CategoryPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
+  setRequestLocale(locale);
+
   const [categories, result, tHome, tSearch] = await Promise.all([
     listCategories(),
-    listPublicRecipes({
+    listCachedPublicRecipes({
       category: slug,
       locale: "all",
       difficulty: "all",

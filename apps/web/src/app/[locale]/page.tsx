@@ -1,8 +1,8 @@
-import { getTranslations } from "next-intl/server";
-import { listCategories, listPublicRecipes } from "@/entities/recipe/server/recipe-service";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { listCachedPublicRecipes, listCategories } from "@/entities/recipe/server/recipe-service";
 import { HomeView } from "@/views/home/ui/home-view";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -13,11 +13,26 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   };
 }
 
-export default async function HomePage() {
+export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+
   const [categories, latest, popular] = await Promise.all([
     listCategories(),
-    listPublicRecipes({ locale: "all", difficulty: "all", sort: "latest", page: 1, limit: 6 }),
-    listPublicRecipes({ locale: "all", difficulty: "all", sort: "popular", page: 1, limit: 6 }),
+    listCachedPublicRecipes({
+      locale: "all",
+      difficulty: "all",
+      sort: "latest",
+      page: 1,
+      limit: 6,
+    }),
+    listCachedPublicRecipes({
+      locale: "all",
+      difficulty: "all",
+      sort: "popular",
+      page: 1,
+      limit: 6,
+    }),
   ]);
 
   return (

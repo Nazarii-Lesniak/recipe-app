@@ -22,6 +22,8 @@ import {
   type UserRole,
 } from "@recipes/domain";
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 
 export interface CategoryDto {
   id: string;
@@ -129,22 +131,30 @@ function fallbackCategories(): CategoryDto[] {
   }));
 }
 
-export async function listCategories(): Promise<CategoryDto[]> {
+const getCachedCategories = unstable_cache(
+  async (): Promise<CategoryDto[]> => {
+    try {
+      const db = getDb();
+      const rows = await db.select().from(categories).orderBy(asc(categories.sortOrder));
+      if (rows.length === 0) {
+        return fallbackCategories();
+      }
+      return rows;
+    } catch {
+      return fallbackCategories();
+    }
+  },
+  ["categories"],
+  { revalidate: 3600, tags: ["categories"] },
+);
+
+export const listCategories = cache(async (): Promise<CategoryDto[]> => {
   if (!isDatabaseConfigured()) {
     return fallbackCategories();
   }
 
-  try {
-    const db = getDb();
-    const rows = await db.select().from(categories).orderBy(asc(categories.sortOrder));
-    if (rows.length === 0) {
-      return fallbackCategories();
-    }
-    return rows;
-  } catch {
-    return fallbackCategories();
-  }
-}
+  return getCachedCategories();
+});
 
 export async function searchTags(query?: string): Promise<TagDto[]> {
   if (!isDatabaseConfigured()) {
@@ -329,12 +339,6 @@ export async function listPublicRecipes(query: SearchRecipesQuery): Promise<{
 
     const whereClause = and(...conditions);
 
-    const countResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(recipes)
-      .where(whereClause);
-    const total = countResult[0]?.count ?? 0;
-
     const saveCountExpr = sql<number>`coalesce((select count(*)::int from saved_recipes sr where sr.recipe_id = ${recipes.id}), 0)`;
 
     const orderByClause =
@@ -346,33 +350,38 @@ export async function listPublicRecipes(query: SearchRecipesQuery): Promise<{
 
     const offset = (query.page - 1) * query.limit;
 
-    const rows = await db
-      .select({
-        id: recipes.id,
-        slug: recipes.slug,
-        title: recipes.title,
-        description: recipes.description,
-        coverImageUrl: recipes.coverImageUrl,
-        baseServings: recipes.baseServings,
-        prepTimeMin: recipes.prepTimeMin,
-        cookTimeMin: recipes.cookTimeMin,
-        difficulty: recipes.difficulty,
-        visibility: recipes.visibility,
-        status: recipes.status,
-        moderationStatus: recipes.moderationStatus,
-        moderationNote: recipes.moderationNote,
-        locale: recipes.locale,
-        authorUsername: users.username,
-        authorName: users.name,
-        saveCount: saveCountExpr,
-        createdAt: recipes.createdAt,
-      })
-      .from(recipes)
-      .innerJoin(users, eq(recipes.authorId, users.id))
-      .where(whereClause)
-      .orderBy(...orderByClause)
-      .limit(query.limit)
-      .offset(offset);
+    const [countResult, rows] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(recipes).where(whereClause),
+      db
+        .select({
+          id: recipes.id,
+          slug: recipes.slug,
+          title: recipes.title,
+          description: recipes.description,
+          coverImageUrl: recipes.coverImageUrl,
+          baseServings: recipes.baseServings,
+          prepTimeMin: recipes.prepTimeMin,
+          cookTimeMin: recipes.cookTimeMin,
+          difficulty: recipes.difficulty,
+          visibility: recipes.visibility,
+          status: recipes.status,
+          moderationStatus: recipes.moderationStatus,
+          moderationNote: recipes.moderationNote,
+          locale: recipes.locale,
+          authorUsername: users.username,
+          authorName: users.name,
+          saveCount: saveCountExpr,
+          createdAt: recipes.createdAt,
+        })
+        .from(recipes)
+        .innerJoin(users, eq(recipes.authorId, users.id))
+        .where(whereClause)
+        .orderBy(...orderByClause)
+        .limit(query.limit)
+        .offset(offset),
+    ]);
+
+    const total = countResult[0]?.count ?? 0;
 
     const items = await hydrateRecipeCards(rows);
     return { items, total, page: query.page, limit: query.limit };
@@ -381,158 +390,166 @@ export async function listPublicRecipes(query: SearchRecipesQuery): Promise<{
   }
 }
 
-export async function getRecipeBySlug(
-  slug: string,
-  viewerId?: string | null,
-  viewerRole?: UserRole | null,
-): Promise<RecipeDetailDto | null> {
-  if (!isDatabaseConfigured()) {
-    return null;
-  }
+export const listCachedPublicRecipes = unstable_cache(
+  async (query: SearchRecipesQuery) => listPublicRecipes(query),
+  ["public-recipes"],
+  { revalidate: 60, tags: ["recipes"] },
+);
 
-  try {
-    const db = getDb();
-    const rows = await db
-      .select({
-        id: recipes.id,
-        authorId: recipes.authorId,
-        forkedFromId: recipes.forkedFromId,
-        slug: recipes.slug,
-        title: recipes.title,
-        description: recipes.description,
-        coverImageUrl: recipes.coverImageUrl,
-        coverImageKey: recipes.coverImageKey,
-        baseServings: recipes.baseServings,
-        prepTimeMin: recipes.prepTimeMin,
-        cookTimeMin: recipes.cookTimeMin,
-        difficulty: recipes.difficulty,
-        visibility: recipes.visibility,
-        status: recipes.status,
-        moderationStatus: recipes.moderationStatus,
-        moderationNote: recipes.moderationNote,
-        sourceUrl: recipes.sourceUrl,
-        locale: recipes.locale,
-        deletedAt: recipes.deletedAt,
-        createdAt: recipes.createdAt,
-        authorUsername: users.username,
-        authorName: users.name,
-      })
-      .from(recipes)
-      .innerJoin(users, eq(recipes.authorId, users.id))
-      .where(eq(recipes.slug, slug))
-      .limit(1);
-
-    const row = rows[0];
-    if (!row || !canViewRecipe(row, viewerId, viewerRole)) {
+export const getRecipeBySlug = cache(
+  async (
+    slug: string,
+    viewerId?: string | null,
+    viewerRole?: UserRole | null,
+  ): Promise<RecipeDetailDto | null> => {
+    if (!isDatabaseConfigured()) {
       return null;
     }
 
-    const [
-      ingredientRows,
-      stepRows,
-      catLinks,
-      tagLinks,
-      saveCountRows,
-      savedByViewerRows,
-      forkOriginRows,
-    ] = await Promise.all([
-      db
-        .select()
-        .from(recipeIngredients)
-        .where(eq(recipeIngredients.recipeId, row.id))
-        .orderBy(asc(recipeIngredients.sortOrder)),
-      db
-        .select()
-        .from(recipeSteps)
-        .where(eq(recipeSteps.recipeId, row.id))
-        .orderBy(asc(recipeSteps.stepNumber)),
-      db
-        .select({ category: categories })
-        .from(recipeCategories)
-        .innerJoin(categories, eq(recipeCategories.categoryId, categories.id))
-        .where(eq(recipeCategories.recipeId, row.id)),
-      db
-        .select({ tag: tags })
-        .from(recipeTags)
-        .innerJoin(tags, eq(recipeTags.tagId, tags.id))
-        .where(eq(recipeTags.recipeId, row.id)),
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(savedRecipes)
-        .where(eq(savedRecipes.recipeId, row.id)),
-      viewerId
-        ? db
-            .select({ recipeId: savedRecipes.recipeId })
-            .from(savedRecipes)
-            .where(and(eq(savedRecipes.recipeId, row.id), eq(savedRecipes.userId, viewerId)))
-            .limit(1)
-        : Promise.resolve([]),
-      row.forkedFromId
-        ? db
-            .select({
-              id: recipes.id,
-              slug: recipes.slug,
-              title: recipes.title,
-              authorUsername: users.username,
-              authorName: users.name,
-            })
-            .from(recipes)
-            .innerJoin(users, eq(recipes.authorId, users.id))
-            .where(eq(recipes.id, row.forkedFromId))
-            .limit(1)
-        : Promise.resolve([]),
-    ]);
+    try {
+      const db = getDb();
+      const rows = await db
+        .select({
+          id: recipes.id,
+          authorId: recipes.authorId,
+          forkedFromId: recipes.forkedFromId,
+          slug: recipes.slug,
+          title: recipes.title,
+          description: recipes.description,
+          coverImageUrl: recipes.coverImageUrl,
+          coverImageKey: recipes.coverImageKey,
+          baseServings: recipes.baseServings,
+          prepTimeMin: recipes.prepTimeMin,
+          cookTimeMin: recipes.cookTimeMin,
+          difficulty: recipes.difficulty,
+          visibility: recipes.visibility,
+          status: recipes.status,
+          moderationStatus: recipes.moderationStatus,
+          moderationNote: recipes.moderationNote,
+          sourceUrl: recipes.sourceUrl,
+          locale: recipes.locale,
+          deletedAt: recipes.deletedAt,
+          createdAt: recipes.createdAt,
+          authorUsername: users.username,
+          authorName: users.name,
+        })
+        .from(recipes)
+        .innerJoin(users, eq(recipes.authorId, users.id))
+        .where(eq(recipes.slug, slug))
+        .limit(1);
 
-    const forkOrigin = forkOriginRows[0];
+      const row = rows[0];
+      if (!row || !canViewRecipe(row, viewerId, viewerRole)) {
+        return null;
+      }
 
-    return {
-      id: row.id,
-      authorId: row.authorId,
-      slug: row.slug,
-      title: row.title,
-      description: row.description,
-      coverImageUrl: row.coverImageUrl,
-      coverImageKey: row.coverImageKey,
-      baseServings: row.baseServings,
-      prepTimeMin: row.prepTimeMin,
-      cookTimeMin: row.cookTimeMin,
-      difficulty: row.difficulty,
-      visibility: row.visibility,
-      status: row.status,
-      moderationStatus: row.moderationStatus,
-      moderationNote: row.moderationNote,
-      sourceUrl: row.sourceUrl,
-      locale: row.locale,
-      authorUsername: row.authorUsername ?? row.authorName,
-      saveCount: saveCountRows[0]?.count ?? 0,
-      isSaved: savedByViewerRows.length > 0,
-      createdAt: row.createdAt.toISOString(),
-      categories: catLinks.map((c) => c.category),
-      tags: tagLinks.map((t) => t.tag),
-      forkedFrom: forkOrigin
-        ? {
-            id: forkOrigin.id,
-            slug: forkOrigin.slug,
-            title: forkOrigin.title,
-            authorUsername: forkOrigin.authorUsername ?? forkOrigin.authorName,
-          }
-        : null,
-      ingredients: ingredientRows.map((ing) => ({
-        id: ing.id,
-        sortOrder: ing.sortOrder,
-        groupName: ing.groupName,
-        name: ing.name,
-        amount: ing.amount !== null ? Number(ing.amount) : null,
-        unit: ing.unit as IngredientUnit,
-        note: ing.note,
-        isScalable: ing.isScalable,
-      })),
-      steps: stepRows,
-    };
-  } catch {
-    return null;
-  }
-}
+      const [
+        ingredientRows,
+        stepRows,
+        catLinks,
+        tagLinks,
+        saveCountRows,
+        savedByViewerRows,
+        forkOriginRows,
+      ] = await Promise.all([
+        db
+          .select()
+          .from(recipeIngredients)
+          .where(eq(recipeIngredients.recipeId, row.id))
+          .orderBy(asc(recipeIngredients.sortOrder)),
+        db
+          .select()
+          .from(recipeSteps)
+          .where(eq(recipeSteps.recipeId, row.id))
+          .orderBy(asc(recipeSteps.stepNumber)),
+        db
+          .select({ category: categories })
+          .from(recipeCategories)
+          .innerJoin(categories, eq(recipeCategories.categoryId, categories.id))
+          .where(eq(recipeCategories.recipeId, row.id)),
+        db
+          .select({ tag: tags })
+          .from(recipeTags)
+          .innerJoin(tags, eq(recipeTags.tagId, tags.id))
+          .where(eq(recipeTags.recipeId, row.id)),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(savedRecipes)
+          .where(eq(savedRecipes.recipeId, row.id)),
+        viewerId
+          ? db
+              .select({ recipeId: savedRecipes.recipeId })
+              .from(savedRecipes)
+              .where(and(eq(savedRecipes.recipeId, row.id), eq(savedRecipes.userId, viewerId)))
+              .limit(1)
+          : Promise.resolve([]),
+        row.forkedFromId
+          ? db
+              .select({
+                id: recipes.id,
+                slug: recipes.slug,
+                title: recipes.title,
+                authorUsername: users.username,
+                authorName: users.name,
+              })
+              .from(recipes)
+              .innerJoin(users, eq(recipes.authorId, users.id))
+              .where(eq(recipes.id, row.forkedFromId))
+              .limit(1)
+          : Promise.resolve([]),
+      ]);
+
+      const forkOrigin = forkOriginRows[0];
+
+      return {
+        id: row.id,
+        authorId: row.authorId,
+        slug: row.slug,
+        title: row.title,
+        description: row.description,
+        coverImageUrl: row.coverImageUrl,
+        coverImageKey: row.coverImageKey,
+        baseServings: row.baseServings,
+        prepTimeMin: row.prepTimeMin,
+        cookTimeMin: row.cookTimeMin,
+        difficulty: row.difficulty,
+        visibility: row.visibility,
+        status: row.status,
+        moderationStatus: row.moderationStatus,
+        moderationNote: row.moderationNote,
+        sourceUrl: row.sourceUrl,
+        locale: row.locale,
+        authorUsername: row.authorUsername ?? row.authorName,
+        saveCount: saveCountRows[0]?.count ?? 0,
+        isSaved: savedByViewerRows.length > 0,
+        createdAt: row.createdAt.toISOString(),
+        categories: catLinks.map((c) => c.category),
+        tags: tagLinks.map((t) => t.tag),
+        forkedFrom: forkOrigin
+          ? {
+              id: forkOrigin.id,
+              slug: forkOrigin.slug,
+              title: forkOrigin.title,
+              authorUsername: forkOrigin.authorUsername ?? forkOrigin.authorName,
+            }
+          : null,
+        ingredients: ingredientRows.map((ing) => ({
+          id: ing.id,
+          sortOrder: ing.sortOrder,
+          groupName: ing.groupName,
+          name: ing.name,
+          amount: ing.amount !== null ? Number(ing.amount) : null,
+          unit: ing.unit as IngredientUnit,
+          note: ing.note,
+          isScalable: ing.isScalable,
+        })),
+        steps: stepRows,
+      };
+    } catch {
+      return null;
+    }
+  },
+);
 
 export async function listPublishedSlugsForSitemap(): Promise<
   Array<{ slug: string; updatedAt: Date }>

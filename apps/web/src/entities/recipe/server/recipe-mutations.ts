@@ -23,9 +23,18 @@ import {
   type UserRole,
 } from "@recipes/domain";
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { revalidateTag } from "next/cache";
 import { AuthError } from "@/core/auth/session";
 import { HttpError } from "@/shared/api/http";
 import type { RecipeCardDto, RecipeDetailDto } from "./recipe-service";
+
+function invalidateRecipesCache(): void {
+  try {
+    revalidateTag("recipes", { expire: 0 });
+  } catch {
+    // Ignore when executed outside Next.js request context (e.g. unit tests)
+  }
+}
 
 export function assertCanMutateRecipe(authorId: string, userId: string, userRole: UserRole): void {
   if (authorId !== userId && userRole !== "admin") {
@@ -112,7 +121,7 @@ export async function createRecipe(userId: string, input: RecipeInput) {
   const db = getDb();
   const slug = createUniqueSlug(input.title);
 
-  return db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(recipes)
       .values({
@@ -142,6 +151,9 @@ export async function createRecipe(userId: string, input: RecipeInput) {
 
     return inserted;
   });
+
+  invalidateRecipesCache();
+  return created;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -252,7 +264,7 @@ export async function updateRecipe(
 
   const db = getDb();
 
-  return db.transaction(async (tx) => {
+  const updatedRecipe = await db.transaction(async (tx) => {
     const existingRows = await tx
       .select()
       .from(recipes)
@@ -304,6 +316,9 @@ export async function updateRecipe(
 
     return updated ?? existing;
   });
+
+  invalidateRecipesCache();
+  return updatedRecipe;
 }
 
 export async function softDeleteRecipe(
@@ -330,6 +345,7 @@ export async function softDeleteRecipe(
   assertCanMutateRecipe(row.authorId, userId, userRole);
 
   await db.update(recipes).set({ deletedAt: new Date() }).where(eq(recipes.id, recipeId));
+  invalidateRecipesCache();
   return { id: row.id };
 }
 
@@ -357,6 +373,7 @@ export async function restoreRecipe(
   assertCanMutateRecipe(row.authorId, userId, userRole);
 
   await db.update(recipes).set({ deletedAt: null }).where(eq(recipes.id, recipeId));
+  invalidateRecipesCache();
   return { id: row.id };
 }
 
@@ -367,7 +384,7 @@ export async function forkRecipe(userId: string, sourceRecipeId: string) {
 
   const db = getDb();
 
-  return db.transaction(async (tx) => {
+  const forkedRecipe = await db.transaction(async (tx) => {
     const sourceRows = await tx
       .select()
       .from(recipes)
@@ -478,6 +495,9 @@ export async function forkRecipe(userId: string, sourceRecipeId: string) {
 
     return forked;
   });
+
+  invalidateRecipesCache();
+  return forkedRecipe;
 }
 
 export async function toggleSaveRecipe(userId: string, recipeId: string, shouldSave: boolean) {
@@ -493,6 +513,8 @@ export async function toggleSaveRecipe(userId: string, recipeId: string, shouldS
       .delete(savedRecipes)
       .where(and(eq(savedRecipes.userId, userId), eq(savedRecipes.recipeId, recipeId)));
   }
+
+  invalidateRecipesCache();
 }
 
 export async function listMyRecipes(
