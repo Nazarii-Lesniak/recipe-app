@@ -5,11 +5,7 @@ import { RecipeDetailView } from "@/views/recipe-detail/ui/recipe-detail-view";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const session = await getServerSession();
   const recipe = await getRecipeBySlug(slug, session?.user.id, session?.user.role);
@@ -28,11 +24,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function RecipeDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function RecipeDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const session = await getServerSession();
   const recipe = await getRecipeBySlug(slug, session?.user.id, session?.user.role);
@@ -42,10 +34,6 @@ export default async function RecipeDetailPage({
   }
 
   return (
-    <RecipeDetailView
-      recipe={recipe}
-      viewerId={session?.user.id}
-      viewerRole={session?.user.role}
-    />
+    <RecipeDetailView recipe={recipe} viewerId={session?.user.id} viewerRole={session?.user.role} />
   );
 }

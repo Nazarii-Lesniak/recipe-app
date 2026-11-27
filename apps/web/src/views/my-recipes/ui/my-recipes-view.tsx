@@ -77,7 +77,12 @@ export function MyRecipesView({ initialTab = "own" }: { initialTab?: MyTab }) {
     });
   };
 
-  const renderGrid = (items: RecipeCardDto[], emptyText: string, ctaHref: string, ctaLabel: string) => {
+  const renderGrid = (
+    items: RecipeCardDto[],
+    emptyText: string,
+    ctaHref: string,
+    ctaLabel: string,
+  ) => {
     if (isLoading) {
       return (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -168,7 +173,10 @@ export function MyRecipesView({ initialTab = "own" }: { initialTab?: MyTab }) {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => (!open ? setDeleteTarget(null) : undefined)}>
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => (!open ? setDeleteTarget(null) : undefined)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("confirmDeleteTitle")}</DialogTitle>

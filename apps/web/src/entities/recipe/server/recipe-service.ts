@@ -4,8 +4,8 @@ import {
   recipeCategories,
   recipeIngredients,
   recipeSteps,
-  recipeTags,
   recipes,
+  recipeTags,
   savedRecipes,
   tags,
   users,
@@ -427,54 +427,61 @@ export async function getRecipeBySlug(
       return null;
     }
 
-    const [ingredientRows, stepRows, catLinks, tagLinks, saveCountRows, savedByViewerRows, forkOriginRows] =
-      await Promise.all([
-        db
-          .select()
-          .from(recipeIngredients)
-          .where(eq(recipeIngredients.recipeId, row.id))
-          .orderBy(asc(recipeIngredients.sortOrder)),
-        db
-          .select()
-          .from(recipeSteps)
-          .where(eq(recipeSteps.recipeId, row.id))
-          .orderBy(asc(recipeSteps.stepNumber)),
-        db
-          .select({ category: categories })
-          .from(recipeCategories)
-          .innerJoin(categories, eq(recipeCategories.categoryId, categories.id))
-          .where(eq(recipeCategories.recipeId, row.id)),
-        db
-          .select({ tag: tags })
-          .from(recipeTags)
-          .innerJoin(tags, eq(recipeTags.tagId, tags.id))
-          .where(eq(recipeTags.recipeId, row.id)),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(savedRecipes)
-          .where(eq(savedRecipes.recipeId, row.id)),
-        viewerId
-          ? db
-              .select({ recipeId: savedRecipes.recipeId })
-              .from(savedRecipes)
-              .where(and(eq(savedRecipes.recipeId, row.id), eq(savedRecipes.userId, viewerId)))
-              .limit(1)
-          : Promise.resolve([]),
-        row.forkedFromId
-          ? db
-              .select({
-                id: recipes.id,
-                slug: recipes.slug,
-                title: recipes.title,
-                authorUsername: users.username,
-                authorName: users.name,
-              })
-              .from(recipes)
-              .innerJoin(users, eq(recipes.authorId, users.id))
-              .where(eq(recipes.id, row.forkedFromId))
-              .limit(1)
-          : Promise.resolve([]),
-      ]);
+    const [
+      ingredientRows,
+      stepRows,
+      catLinks,
+      tagLinks,
+      saveCountRows,
+      savedByViewerRows,
+      forkOriginRows,
+    ] = await Promise.all([
+      db
+        .select()
+        .from(recipeIngredients)
+        .where(eq(recipeIngredients.recipeId, row.id))
+        .orderBy(asc(recipeIngredients.sortOrder)),
+      db
+        .select()
+        .from(recipeSteps)
+        .where(eq(recipeSteps.recipeId, row.id))
+        .orderBy(asc(recipeSteps.stepNumber)),
+      db
+        .select({ category: categories })
+        .from(recipeCategories)
+        .innerJoin(categories, eq(recipeCategories.categoryId, categories.id))
+        .where(eq(recipeCategories.recipeId, row.id)),
+      db
+        .select({ tag: tags })
+        .from(recipeTags)
+        .innerJoin(tags, eq(recipeTags.tagId, tags.id))
+        .where(eq(recipeTags.recipeId, row.id)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(savedRecipes)
+        .where(eq(savedRecipes.recipeId, row.id)),
+      viewerId
+        ? db
+            .select({ recipeId: savedRecipes.recipeId })
+            .from(savedRecipes)
+            .where(and(eq(savedRecipes.recipeId, row.id), eq(savedRecipes.userId, viewerId)))
+            .limit(1)
+        : Promise.resolve([]),
+      row.forkedFromId
+        ? db
+            .select({
+              id: recipes.id,
+              slug: recipes.slug,
+              title: recipes.title,
+              authorUsername: users.username,
+              authorName: users.name,
+            })
+            .from(recipes)
+            .innerJoin(users, eq(recipes.authorId, users.id))
+            .where(eq(recipes.id, row.forkedFromId))
+            .limit(1)
+        : Promise.resolve([]),
+    ]);
 
     const forkOrigin = forkOriginRows[0];
 

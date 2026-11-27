@@ -21,10 +21,6 @@ export default async function HomePage() {
   ]);
 
   return (
-    <HomeView
-      categories={categories}
-      latestRecipes={latest.items}
-      popularRecipes={popular.items}
-    />
+    <HomeView categories={categories} latestRecipes={latest.items} popularRecipes={popular.items} />
   );
 }

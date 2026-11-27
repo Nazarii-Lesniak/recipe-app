@@ -34,7 +34,9 @@ export async function GET() {
             .where(and(inArray(recipes.id, savedIds), isNull(recipes.deletedAt)))
         : [];
 
-    const allIds = Array.from(new Set([...ownRecipes.map((r) => r.id), ...bookmarkedRecipes.map((r) => r.id)]));
+    const allIds = Array.from(
+      new Set([...ownRecipes.map((r) => r.id), ...bookmarkedRecipes.map((r) => r.id)]),
+    );
 
     const [ingredients, steps] =
       allIds.length > 0

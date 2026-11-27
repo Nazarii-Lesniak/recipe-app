@@ -12,7 +12,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useRouter } from "@/core/i18n/navigation";
@@ -60,30 +60,35 @@ export function RecipeForm({
   const idPrefix = useId();
   const [tagInput, setTagInput] = useState("");
 
-  const defaults: RecipeInput = {
-    title: initialValues?.title ?? "",
-    description: initialValues?.description ?? "",
-    coverImageUrl: initialValues?.coverImageUrl ?? null,
-    coverImageKey: initialValues?.coverImageKey ?? null,
-    baseServings: initialValues?.baseServings ?? 4,
-    prepTimeMin: initialValues?.prepTimeMin ?? 15,
-    cookTimeMin: initialValues?.cookTimeMin ?? 30,
-    difficulty: initialValues?.difficulty ?? "medium",
-    visibility: initialValues?.visibility ?? "public",
-    status: initialValues?.status ?? "active",
-    sourceUrl: initialValues?.sourceUrl ?? null,
-    locale: initialValues?.locale ?? (locale === "en" ? "en" : "uk"),
-    categorySlugs: initialValues?.categorySlugs ?? [],
-    tags: initialValues?.tags ?? [],
-    ingredients:
-      initialValues?.ingredients && initialValues.ingredients.length > 0
-        ? initialValues.ingredients
-        : [{ name: "", amount: 100, unit: "g", isScalable: true, groupName: null, note: null }],
-    steps:
-      initialValues?.steps && initialValues.steps.length > 0
-        ? initialValues.steps
-        : [{ instruction: "", timerSeconds: null, imageUrl: null, imageKey: null }],
-  };
+  const buildDefaults = useCallback(
+    (values?: Partial<RecipeInput>): RecipeInput => ({
+      title: values?.title ?? "",
+      description: values?.description ?? "",
+      coverImageUrl: values?.coverImageUrl ?? null,
+      coverImageKey: values?.coverImageKey ?? null,
+      baseServings: values?.baseServings ?? 4,
+      prepTimeMin: values?.prepTimeMin ?? 15,
+      cookTimeMin: values?.cookTimeMin ?? 30,
+      difficulty: values?.difficulty ?? "medium",
+      visibility: values?.visibility ?? "public",
+      status: values?.status ?? "active",
+      sourceUrl: values?.sourceUrl ?? null,
+      locale: values?.locale ?? (locale === "en" ? "en" : "uk"),
+      categorySlugs: values?.categorySlugs ?? [],
+      tags: values?.tags ?? [],
+      ingredients:
+        values?.ingredients && values.ingredients.length > 0
+          ? values.ingredients
+          : [{ name: "", amount: 100, unit: "g", isScalable: true, groupName: null, note: null }],
+      steps:
+        values?.steps && values.steps.length > 0
+          ? values.steps
+          : [{ instruction: "", timerSeconds: null, imageUrl: null, imageKey: null }],
+    }),
+    [locale],
+  );
+
+  const defaults = useMemo(() => buildDefaults(initialValues), [buildDefaults, initialValues]);
 
   const {
     register,
@@ -101,38 +106,20 @@ export function RecipeForm({
 
   useEffect(() => {
     if (initialValues && !recipeId) {
-      reset({
-        ...defaults,
-        ...initialValues,
-        ingredients:
-          initialValues.ingredients && initialValues.ingredients.length > 0
-            ? initialValues.ingredients
-            : defaults.ingredients,
-        steps:
-          initialValues.steps && initialValues.steps.length > 0
-            ? initialValues.steps
-            : defaults.steps,
-      });
+      reset(buildDefaults(initialValues));
     }
-    // Only reset when AI import injects new initialValues on new recipe creation
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialValues]);
+  }, [initialValues, recipeId, reset, buildDefaults]);
 
   const ingredientArray = useFieldArray({ control, name: "ingredients" });
   const stepArray = useFieldArray({ control, name: "steps" });
   const watchedValues = watch();
 
-  const {
-    pendingDraft,
-    lastAutosavedAt,
-    dismissPendingDraft,
-    consumePendingDraft,
-    clearDraft,
-  } = useRecipeDraftAutosave({
-    scopeKey,
-    currentValues: watchedValues as Partial<RecipeInput>,
-    isDirty,
-  });
+  const { pendingDraft, lastAutosavedAt, dismissPendingDraft, consumePendingDraft, clearDraft } =
+    useRecipeDraftAutosave({
+      scopeKey,
+      currentValues: watchedValues as Partial<RecipeInput>,
+      isDirty,
+    });
 
   const { data: tagSuggestions } = useQuery({
     queryKey: ["tag-suggestions", tagInput],
@@ -480,12 +467,16 @@ export function RecipeForm({
                 {...register(`ingredients.${index}.note`)}
               />
               <div className="flex items-center justify-between gap-2">
-                <label className="flex items-center gap-1.5 text-xs">
+                <label
+                  htmlFor={`${idPrefix}-scalable-${index}`}
+                  className="flex items-center gap-1.5 text-xs"
+                >
                   <Controller
                     control={control}
                     name={`ingredients.${index}.isScalable`}
                     render={({ field: scaleField }) => (
                       <Checkbox
+                        id={`${idPrefix}-scalable-${index}`}
                         checked={scaleField.value}
                         onCheckedChange={(v) => scaleField.onChange(Boolean(v))}
                       />

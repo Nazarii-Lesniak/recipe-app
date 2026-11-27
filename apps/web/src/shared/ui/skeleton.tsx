@@ -5,6 +5,6 @@ export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>
   return <div className={cn("animate-pulse rounded-md bg-muted", className)} {...props} />;
 }
 
-export function Separator({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div role="separator" className={cn("h-px w-full bg-border", className)} {...props} />;
+export function Separator({ className, ...props }: HTMLAttributes<HTMLHRElement>) {
+  return <hr className={cn("h-px w-full border-0 bg-border", className)} {...props} />;
 }

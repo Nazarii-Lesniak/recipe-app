@@ -9,4 +9,4 @@ export const messagesByLocale = {
 } as const;
 
 export type Messages = typeof uk;
-export { uk, en };
+export { en, uk };

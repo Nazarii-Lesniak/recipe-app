@@ -5,18 +5,7 @@ module.exports = {
     "scope-enum": [
       2,
       "always",
-      [
-        "auth",
-        "recipes",
-        "ai",
-        "ui",
-        "db",
-        "i18n",
-        "moderation",
-        "ci",
-        "repo",
-        "domain"
-      ]
-    ]
-  }
+      ["auth", "recipes", "ai", "ui", "db", "i18n", "moderation", "ci", "repo", "domain"],
+    ],
+  },
 };

@@ -73,7 +73,10 @@ export function Header({ initialModerationCount = 0 }: { initialModerationCount?
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2 font-editorial text-xl font-bold text-foreground">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-editorial text-xl font-bold text-foreground"
+          >
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <UtensilsCrossed className="h-5 w-5" />
             </span>
@@ -102,7 +105,10 @@ export function Header({ initialModerationCount = 0 }: { initialModerationCount?
                   <ShieldAlert className="h-4 w-4 text-primary" />
                   {tNav("moderation")}
                   {(modCountData?.count ?? 0) > 0 ? (
-                    <Badge variant="default" className="ml-0.5 px-1.5 py-0 text-[10px] tabular-nums">
+                    <Badge
+                      variant="default"
+                      className="ml-0.5 px-1.5 py-0 text-[10px] tabular-nums"
+                    >
                       {modCountData?.count}
                     </Badge>
                   ) : null}
@@ -122,13 +128,22 @@ export function Header({ initialModerationCount = 0 }: { initialModerationCount?
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label={tNav("theme")} data-testid="theme-switcher">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={tNav("theme")}
+                data-testid="theme-switcher"
+              >
                 <Palette className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {SUPPORTED_THEMES.map((item: ThemePreference) => (
-                <DropdownMenuItem key={item} onClick={() => setTheme(item)} data-testid={`theme-${item}`}>
+                <DropdownMenuItem
+                  key={item}
+                  onClick={() => setTheme(item)}
+                  data-testid={`theme-${item}`}
+                >
                   <Check className={`h-4 w-4 ${theme === item ? "opacity-100" : "opacity-0"}`} />
                   <span>{tThemes(item)}</span>
                 </DropdownMenuItem>
@@ -138,7 +153,12 @@ export function Header({ initialModerationCount = 0 }: { initialModerationCount?
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" aria-label={tNav("language")} data-testid="locale-switcher">
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={tNav("language")}
+                data-testid="locale-switcher"
+              >
                 <Globe className="h-4 w-4" />
                 <span className="uppercase">{locale}</span>
               </Button>
@@ -207,7 +227,12 @@ export function Header({ initialModerationCount = 0 }: { initialModerationCount?
               <Button variant="ghost" size="sm" onClick={() => openLogin()}>
                 {tNav("signIn")}
               </Button>
-              <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={() => openRegister()}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:inline-flex"
+                onClick={() => openRegister()}
+              >
                 {tNav("signUp")}
               </Button>
             </div>

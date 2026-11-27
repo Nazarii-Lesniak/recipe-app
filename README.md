@@ -13,20 +13,24 @@ Full-stack recipe platform built with **Next.js 16 (App Router, FSD)**, **Turbor
 ## Local Quick Start
 
 1. Copy environment variables:
+
    ```bash
    cp .env.example .env
    ```
 2. Start PostgreSQL 17 (for local dev & DBeaver):
+
    ```bash
    docker compose up -d
    ```
 3. Install dependencies, run migrations, and seed categories:
+
    ```bash
    pnpm install
    pnpm db:migrate
    pnpm db:seed
    ```
 4. Start the development server:
+
    ```bash
    pnpm dev
    ```

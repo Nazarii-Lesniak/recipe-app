@@ -28,12 +28,7 @@ export type RecipeStatus = (typeof RECIPE_STATUSES)[number];
 export const MODERATION_STATUSES = ["unreviewed", "approved", "hidden"] as const;
 export type ModerationStatus = (typeof MODERATION_STATUSES)[number];
 
-export const MODERATION_ACTIONS = [
-  "approved",
-  "hidden",
-  "restored",
-  "hard_deleted",
-] as const;
+export const MODERATION_ACTIONS = ["approved", "hidden", "restored", "hard_deleted"] as const;
 export type ModerationAction = (typeof MODERATION_ACTIONS)[number];
 
 export const INGREDIENT_UNITS = [
@@ -61,7 +56,13 @@ export interface SeedCategory {
 export const SEED_CATEGORIES: readonly SeedCategory[] = [
   { slug: "breakfasts", nameUk: "Сніданки", nameEn: "Breakfasts", icon: "sunrise", sortOrder: 1 },
   { slug: "soups", nameUk: "Супи", nameEn: "Soups", icon: "soup", sortOrder: 2 },
-  { slug: "mains", nameUk: "Основні страви", nameEn: "Main Dishes", icon: "utensils", sortOrder: 3 },
+  {
+    slug: "mains",
+    nameUk: "Основні страви",
+    nameEn: "Main Dishes",
+    icon: "utensils",
+    sortOrder: 3,
+  },
   { slug: "salads", nameUk: "Салати", nameEn: "Salads", icon: "salad", sortOrder: 4 },
   { slug: "baking", nameUk: "Випічка", nameEn: "Baking", icon: "croissant", sortOrder: 5 },
   { slug: "desserts", nameUk: "Десерти", nameEn: "Desserts", icon: "cake-slice", sortOrder: 6 },

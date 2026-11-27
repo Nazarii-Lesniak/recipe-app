@@ -60,7 +60,11 @@ export function AdminModerationView({
     },
   });
 
-  const handleModerate = async (recipeId: string, action: "approved" | "hidden", reason?: string) => {
+  const handleModerate = async (
+    recipeId: string,
+    action: "approved" | "hidden",
+    reason?: string,
+  ) => {
     const res = await fetch(`/api/v1/moderation/${recipeId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -126,7 +130,10 @@ export function AdminModerationView({
               <Card key={item.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Link href={`/recipes/${item.slug}`} className="font-editorial text-lg font-semibold hover:text-primary">
+                    <Link
+                      href={`/recipes/${item.slug}`}
+                      className="font-editorial text-lg font-semibold hover:text-primary"
+                    >
                       {item.title}
                     </Link>
                     <Badge variant="muted">{item.locale.toUpperCase()}</Badge>
@@ -157,7 +164,10 @@ export function AdminModerationView({
               </Card>
             ) : (
               archiveItems.map((item) => (
-                <Card key={item.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
+                <Card
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-4 p-4"
+                >
                   <div className="space-y-1">
                     <p className="font-editorial text-lg font-semibold">{item.title}</p>
                     <p className="text-xs text-muted-foreground">@{item.authorUsername}</p>
@@ -167,7 +177,11 @@ export function AdminModerationView({
                       <RotateCcw className="h-4 w-4" />
                       <span>{t("restore")}</span>
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => setHardDeleteTarget(item)}>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setHardDeleteTarget(item)}
+                    >
                       <Trash2 className="h-4 w-4" />
                       <span>{t("hardDelete")}</span>
                     </Button>
@@ -179,7 +193,10 @@ export function AdminModerationView({
         ) : null}
       </Tabs>
 
-      <Dialog open={Boolean(hideTarget)} onOpenChange={(open) => (!open ? setHideTarget(null) : undefined)}>
+      <Dialog
+        open={Boolean(hideTarget)}
+        onOpenChange={(open) => (!open ? setHideTarget(null) : undefined)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("hide")}</DialogTitle>

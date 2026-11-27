@@ -150,7 +150,5 @@ export function scaleRecipeIngredients(
   targetServings: number,
   unitSystem: UnitSystem = "metric",
 ): ScaledIngredientResult[] {
-  return ingredients.map((item) =>
-    scaleIngredient(item, baseServings, targetServings, unitSystem),
-  );
+  return ingredients.map((item) => scaleIngredient(item, baseServings, targetServings, unitSystem));
 }

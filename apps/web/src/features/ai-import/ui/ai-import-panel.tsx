@@ -195,8 +195,12 @@ export function AiImportPanel({
       </Tabs>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <label
+          htmlFor="ai-keep-original"
+          className="flex cursor-pointer items-center gap-2 text-sm"
+        >
           <Checkbox
+            id="ai-keep-original"
             checked={keepOriginalLanguage}
             onCheckedChange={(checked) => setKeepOriginalLanguage(Boolean(checked))}
           />
@@ -204,7 +208,11 @@ export function AiImportPanel({
         </label>
 
         <Button type="button" onClick={handleImport} disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
           <span>{loading ? t("parsing") : t("submit")}</span>
         </Button>
       </div>

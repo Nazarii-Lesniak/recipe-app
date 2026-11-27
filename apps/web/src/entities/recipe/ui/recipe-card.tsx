@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, Clock, ChefHat, Utensils } from "lucide-react";
+import { Bookmark, ChefHat, Clock, Utensils } from "lucide-react";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/core/i18n/navigation";

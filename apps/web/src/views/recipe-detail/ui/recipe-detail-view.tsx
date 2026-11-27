@@ -145,16 +145,15 @@ export function RecipeDetailView({
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8">
-      <script type="application/ld+json">
-        {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
-      </script>
+      <script type="application/ld+json">{JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>
 
       {recipe.moderationStatus === "hidden" && recipe.moderationNote ? (
         <div
           role="alert"
           className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          <strong>{t("hiddenBadge")}:</strong> {t("hiddenReason", { reason: recipe.moderationNote })}
+          <strong>{t("hiddenBadge")}:</strong>{" "}
+          {t("hiddenReason", { reason: recipe.moderationNote })}
         </div>
       ) : null}
 
@@ -320,7 +319,9 @@ export function RecipeDetailView({
 
             <div className="rounded-lg bg-muted/60 p-3 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">{t("scalerTitle")}</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("scalerTitle")}
+                </span>
                 <div className="flex items-center gap-2 tabular-nums">
                   <Button
                     type="button"

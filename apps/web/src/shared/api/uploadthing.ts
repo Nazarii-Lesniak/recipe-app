@@ -46,7 +46,9 @@ export function getUtApi(): UTApi | null {
   return cachedUtApi;
 }
 
-export async function deleteUploadThingFiles(keys: ReadonlyArray<string | null | undefined>): Promise<void> {
+export async function deleteUploadThingFiles(
+  keys: ReadonlyArray<string | null | undefined>,
+): Promise<void> {
   const validKeys = keys.filter((k): k is string => typeof k === "string" && k.trim().length > 0);
   if (validKeys.length === 0) {
     return;

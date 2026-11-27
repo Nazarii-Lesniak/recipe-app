@@ -9,10 +9,7 @@ import {
 import { sendModerationTelegramNotification } from "@/features/moderation/server/telegram";
 import { forbidden, handleRouteError, notFound, ok, verifySameOrigin } from "@/shared/api/http";
 
-export async function GET(
-  _request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     const user = await requireAuth();
@@ -26,10 +23,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     if (!verifySameOrigin(request)) {
       return forbidden("Invalid request origin");
@@ -55,10 +49,7 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     if (!verifySameOrigin(request)) {
       return forbidden("Invalid request origin");

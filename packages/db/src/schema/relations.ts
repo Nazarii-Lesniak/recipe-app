@@ -6,8 +6,8 @@ import {
   recipeCategories,
   recipeIngredients,
   recipeSteps,
-  recipeTags,
   recipes,
+  recipeTags,
   savedRecipes,
   tags,
 } from "./recipes";

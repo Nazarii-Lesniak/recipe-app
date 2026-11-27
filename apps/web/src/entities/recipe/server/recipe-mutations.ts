@@ -4,8 +4,8 @@ import {
   recipeCategories,
   recipeIngredients,
   recipeSteps,
-  recipeTags,
   recipes,
+  recipeTags,
   savedRecipes,
   tags,
   users,
@@ -27,11 +27,7 @@ import { AuthError } from "@/core/auth/session";
 import { HttpError } from "@/shared/api/http";
 import type { RecipeCardDto, RecipeDetailDto } from "./recipe-service";
 
-export function assertCanMutateRecipe(
-  authorId: string,
-  userId: string,
-  userRole: UserRole,
-): void {
+export function assertCanMutateRecipe(authorId: string, userId: string, userRole: UserRole): void {
   if (authorId !== userId && userRole !== "admin") {
     throw new AuthError("Only the author or admin can modify this recipe", 403);
   }
@@ -103,10 +99,7 @@ async function syncRecipeRelations(
       .returning({ id: tags.id });
 
     if (upserted) {
-      await tx
-        .insert(recipeTags)
-        .values({ recipeId, tagId: upserted.id })
-        .onConflictDoNothing();
+      await tx.insert(recipeTags).values({ recipeId, tagId: upserted.id }).onConflictDoNothing();
     }
   }
 }
@@ -293,7 +286,9 @@ export async function updateRecipe(
             ? "unreviewed"
             : existing.moderationStatus,
         moderationNote:
-          input.visibility === "public" && input.status === "active" ? null : existing.moderationNote,
+          input.visibility === "public" && input.status === "active"
+            ? null
+            : existing.moderationNote,
       })
       .where(eq(recipes.id, recipeId))
       .returning();
@@ -492,10 +487,7 @@ export async function toggleSaveRecipe(userId: string, recipeId: string, shouldS
 
   const db = getDb();
   if (shouldSave) {
-    await db
-      .insert(savedRecipes)
-      .values({ userId, recipeId })
-      .onConflictDoNothing();
+    await db.insert(savedRecipes).values({ userId, recipeId }).onConflictDoNothing();
   } else {
     await db
       .delete(savedRecipes)
@@ -595,7 +587,13 @@ export async function listMyRecipes(
     })
     .from(recipes)
     .innerJoin(users, eq(recipes.authorId, users.id))
-    .where(and(eq(recipes.authorId, userId), eq(recipes.status, statusFilter), isNull(recipes.deletedAt)))
+    .where(
+      and(
+        eq(recipes.authorId, userId),
+        eq(recipes.status, statusFilter),
+        isNull(recipes.deletedAt),
+      ),
+    )
     .orderBy(desc(recipes.updatedAt));
 
   return rows.map((row) => ({
