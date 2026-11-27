@@ -193,42 +193,42 @@ export async function importRecipeFromSource(
       };
     }
 
-    const plainText = extractReadableTextFromHtml(html);
-    if (plainText.length < 40) {
-      throw new HttpError("empty_page_content", 422);
+      const plainText = extractReadableTextFromHtml(html);
+      if (plainText.length < 40) {
+        throw new HttpError("empty_page_content", 422);
+      }
+
+      const parsed = await runLlmExtraction(
+        request.targetLocale,
+        request.keepOriginalLanguage,
+        plainText,
+      );
+
+      return {
+        recipe: parsed,
+        source: "llm",
+        duplicateWarning: Boolean(duplicate),
+      };
     }
 
-    const parsed = await runLlmExtraction(
-      request.targetLocale,
-      request.keepOriginalLanguage,
-      plainText,
-    );
+    if (request.mode === "text" && request.text) {
+      const parsed = await runLlmExtraction(
+        request.targetLocale,
+        request.keepOriginalLanguage,
+        request.text,
+      );
+      return { recipe: parsed, source: "llm", duplicateWarning: false };
+    }
 
-    return {
-      recipe: parsed,
-      source: "llm",
-      duplicateWarning: Boolean(duplicate),
-    };
+    if (request.mode === "image" && request.imageDataUrl) {
+      parseImageDataUrl(request.imageDataUrl);
+      const parsed = await runLlmExtraction(
+        request.targetLocale,
+        request.keepOriginalLanguage,
+        { imageDataUrl: request.imageDataUrl },
+      );
+      return { recipe: parsed, source: "llm", duplicateWarning: false };
+    }
+
+    throw new HttpError("invalid_import_request", 400);
   }
-
-  if (request.mode === "text" && request.text) {
-    const parsed = await runLlmExtraction(
-      request.targetLocale,
-      request.keepOriginalLanguage,
-      request.text,
-    );
-    return { recipe: parsed, source: "llm", duplicateWarning: false };
-  }
-
-  if (request.mode === "image" && request.imageDataUrl) {
-    parseImageDataUrl(request.imageDataUrl);
-    const parsed = await runLlmExtraction(
-      request.targetLocale,
-      request.keepOriginalLanguage,
-      { imageDataUrl: request.imageDataUrl },
-    );
-    return { recipe: parsed, source: "llm", duplicateWarning: false };
-  }
-
-  throw new HttpError("invalid_import_request", 400);
-}
