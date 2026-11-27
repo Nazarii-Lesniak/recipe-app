@@ -15,22 +15,22 @@ export function badRequest(message: string, details?: unknown): NextResponse {
   return NextResponse.json({ error: message, details }, { status: 400 });
 }
 
-export function unauthorized(message = "Authentication required"): NextResponse {
+export function unauthorized(message = "unauthorized"): NextResponse {
   return NextResponse.json({ error: message }, { status: 401 });
 }
 
-export function forbidden(message = "Forbidden"): NextResponse {
+export function forbidden(message = "forbidden"): NextResponse {
   return NextResponse.json({ error: message }, { status: 403 });
 }
 
-export function notFound(message = "Not found"): NextResponse {
+export function notFound(message = "not_found"): NextResponse {
   return NextResponse.json({ error: message }, { status: 404 });
 }
 
 export function tooManyRequests(resetAt?: number): NextResponse {
   const retryAfter = resetAt ? Math.max(1, Math.ceil((resetAt - Date.now()) / 1000)) : 60;
   return NextResponse.json(
-    { error: "Too many requests" },
+    { error: "rate_limited" },
     {
       status: 429,
       headers: { "Retry-After": String(retryAfter) },
@@ -70,11 +70,14 @@ export function verifySameOrigin(request: Request): boolean {
 
 export function handleRouteError(error: unknown): NextResponse {
   if (error instanceof AuthError) {
-    return NextResponse.json({ error: error.message }, { status: error.status });
+    return NextResponse.json(
+      { error: error.status === 401 ? "unauthorized" : "forbidden" },
+      { status: error.status },
+    );
   }
   if (error instanceof ZodError) {
     return NextResponse.json(
-      { error: "Validation failed", details: error.flatten() },
+      { error: "validation_failed", details: error.flatten() },
       { status: 400 },
     );
   }
@@ -82,7 +85,7 @@ export function handleRouteError(error: unknown): NextResponse {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
   console.error("Unhandled API route error:", error);
-  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  return NextResponse.json({ error: "internal_error" }, { status: 500 });
 }
 
 export class HttpError extends Error {

@@ -1,15 +1,15 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Link } from "@/core/i18n/navigation";
 import type { RecipeCardDto } from "@/entities/recipe/server/recipe-service";
 import { RecipeCard } from "@/entities/recipe/ui/recipe-card";
+import { resolveClientErrorKey } from "@/shared/lib/error-messages";
 import {
-  Badge,
   Button,
   Card,
   Dialog,
@@ -29,8 +29,8 @@ type MyTab = "own" | "saved" | "drafts";
 
 export function MyRecipesView({ initialTab = "own" }: { initialTab?: MyTab }) {
   const t = useTranslations("myRecipes");
-  const tRecipe = useTranslations("recipe");
   const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<MyTab>(initialTab);
   const [deleteTarget, setDeleteTarget] = useState<RecipeCardDto | null>(null);
@@ -49,35 +49,52 @@ export function MyRecipesView({ initialTab = "own" }: { initialTab?: MyTab }) {
     const target = deleteTarget;
     setDeleteTarget(null);
 
-    const res = await fetch(`/api/v1/recipes/by-id/${target.id}`, {
-      method: "DELETE",
-    });
+    try {
+      const res = await fetch(`/api/v1/recipes/by-id/${target.id}`, {
+        method: "DELETE",
+      });
 
-    if (!res.ok) {
-      toast.error(tCommon("errorTitle"));
-      return;
-    }
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        return;
+      }
 
-    await queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
 
-    toast(t("deletedToast", { title: target.title }), {
-      duration: 5000,
-      action: {
-        label: t("undo"),
-        onClick: async () => {
-          const restoreRes = await fetch(`/api/v1/recipes/by-id/${target.id}/restore`, {
-            method: "POST",
-          });
-          if (restoreRes.ok) {
-            await queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
-            toast.success(t("restoredToast"));
-          }
+      toast(t("deletedToast", { title: target.title }), {
+        duration: 5000,
+        action: {
+          label: t("undo"),
+          onClick: async () => {
+            try {
+              const restoreRes = await fetch(`/api/v1/recipes/by-id/${target.id}/restore`, {
+                method: "POST",
+              });
+              if (restoreRes.ok) {
+                await queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
+                toast.success(t("restoredToast"));
+              } else {
+                const err = (await restoreRes.json().catch(() => ({}))) as { error?: string };
+                toast.error(tErrors(resolveClientErrorKey(err.error, restoreRes.status)));
+              }
+            } catch {
+              toast.error(tErrors("network"));
+            }
+          },
         },
-      },
-    });
+      });
+    } catch {
+      toast.error(tErrors("network"));
+    }
   };
 
-  const renderGrid = (items: RecipeCardDto[], emptyText: string, ctaHref: string, ctaLabel: string) => {
+  const renderGrid = (
+    items: RecipeCardDto[],
+    emptyText: string,
+    ctaHref: string,
+    ctaLabel: string,
+  ) => {
     if (isLoading) {
       return (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -102,37 +119,13 @@ export function MyRecipesView({ initialTab = "own" }: { initialTab?: MyTab }) {
     return (
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((recipe) => (
-          <div key={recipe.id} className="flex flex-col gap-2">
-            <RecipeCard recipe={recipe} />
-            {activeTab !== "saved" ? (
-              <div className="flex items-center justify-between gap-2 px-1">
-                <div className="flex flex-wrap gap-1">
-                  {recipe.visibility === "private" ? (
-                    <Badge variant="outline">{tRecipe("privateBadge")}</Badge>
-                  ) : null}
-                  {recipe.moderationStatus === "hidden" ? (
-                    <Badge variant="destructive">{tRecipe("hiddenBadge")}</Badge>
-                  ) : null}
-                </div>
-                <div className="flex gap-1.5">
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href={`/recipes/${recipe.id}/edit`}>
-                      <Pencil className="h-3.5 w-3.5" />
-                      <span>{tCommon("edit")}</span>
-                    </Link>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setDeleteTarget(recipe)}
-                    aria-label={tCommon("delete")}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <RecipeCard
+            key={recipe.id}
+            recipe={recipe}
+            showStatusBadges={activeTab !== "saved"}
+            editHref={activeTab !== "saved" ? `/recipes/${recipe.id}/edit` : undefined}
+            onDelete={activeTab !== "saved" ? () => setDeleteTarget(recipe) : undefined}
+          />
         ))}
       </div>
     );
@@ -168,7 +161,10 @@ export function MyRecipesView({ initialTab = "own" }: { initialTab?: MyTab }) {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => (!open ? setDeleteTarget(null) : undefined)}>
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => (!open ? setDeleteTarget(null) : undefined)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("confirmDeleteTitle")}</DialogTitle>

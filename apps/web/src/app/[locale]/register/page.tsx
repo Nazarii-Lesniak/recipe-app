@@ -19,7 +19,10 @@ export default function RegisterPage() {
         <CardContent className="space-y-4">
           <RegisterForm onSuccess={() => router.push("/")} />
           <div className="text-center text-xs text-muted-foreground">
-            <Link href="/login" className="underline-offset-4 hover:text-foreground hover:underline">
+            <Link
+              href="/login"
+              className="underline-offset-4 hover:text-foreground hover:underline"
+            >
               {t("switchToLogin")}
             </Link>
           </div>

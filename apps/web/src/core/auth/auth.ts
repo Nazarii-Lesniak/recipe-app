@@ -1,5 +1,5 @@
-import * as schema from "@recipes/db/schema";
 import { getDb } from "@recipes/db";
+import * as schema from "@recipes/db/schema";
 import { generateUsernameCandidate, normalizeUsername } from "@recipes/domain";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";

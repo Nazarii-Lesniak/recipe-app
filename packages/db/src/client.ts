@@ -23,6 +23,7 @@ export function getDb(): Database {
     max: 10,
     idle_timeout: 20,
     connect_timeout: 5,
+    prepare: false,
   });
 
   cachedDb = drizzle(cachedClient, { schema });

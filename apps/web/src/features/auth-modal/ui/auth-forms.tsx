@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { signIn } from "@/core/auth/auth-client";
 import { useRouter } from "@/core/i18n/navigation";
+import { resolveClientErrorKey } from "@/shared/lib/error-messages";
 import { Button, Input, Label } from "@/shared/ui";
 
 function useGoogleEnabled() {
@@ -77,6 +78,7 @@ export function LoginForm({
   onSwitchToRegister?: () => void;
 }) {
   const t = useTranslations("auth");
+  const tErrors = useTranslations("errors");
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -93,18 +95,22 @@ export function LoginForm({
 
   const onSubmit = async (values: LoginInput) => {
     setServerError(null);
-    const result = await signIn.username({
-      username: values.username.trim().toLowerCase(),
-      password: values.password,
-    });
+    try {
+      const result = await signIn.username({
+        username: values.username.trim().toLowerCase(),
+        password: values.password,
+      });
 
-    if (result.error) {
-      setServerError(t("invalidCredentials"));
-      return;
+      if (result.error) {
+        setServerError(t("invalidCredentials"));
+        return;
+      }
+
+      router.refresh();
+      onSuccess?.();
+    } catch {
+      setServerError(tErrors("network"));
     }
-
-    router.refresh();
-    onSuccess?.();
   };
 
   const usernameId = `${idPrefix}-login-username`;
@@ -204,6 +210,7 @@ export function RegisterForm({
   onSwitchToLogin?: () => void;
 }) {
   const t = useTranslations("auth");
+  const tErrors = useTranslations("errors");
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -220,24 +227,28 @@ export function RegisterForm({
 
   const onSubmit = async (values: RegisterInput) => {
     setServerError(null);
-    const res = await fetch("/api/v1/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    });
+    try {
+      const res = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
 
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      if (payload.error === "username_taken") {
-        setServerError(t("usernameTaken"));
-      } else {
-        setServerError(payload.error ?? t("invalidCredentials"));
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        if (payload.error === "username_taken") {
+          setServerError(t("usernameTaken"));
+        } else {
+          setServerError(tErrors(resolveClientErrorKey(payload.error, res.status)));
+        }
+        return;
       }
-      return;
-    }
 
-    router.refresh();
-    onSuccess?.();
+      router.refresh();
+      onSuccess?.();
+    } catch {
+      setServerError(tErrors("network"));
+    }
   };
 
   const usernameId = `${idPrefix}-reg-username`;

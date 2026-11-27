@@ -31,7 +31,7 @@ export function AiImportPanel({
 }) {
   const t = useTranslations("aiImport");
   const tAuth = useTranslations("auth");
-  const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const locale = useLocale();
   const openLogin = useAuthModalStore((s) => s.openLogin);
 
@@ -99,7 +99,7 @@ export function AiImportPanel({
           err.error && err.error in errorKeyMap
             ? errorKeyMap[err.error as keyof typeof errorKeyMap]
             : null;
-        toast.error(messageKey ? t(messageKey) : tCommon("errorTitle"));
+        toast.error(messageKey ? t(messageKey) : tErrors("generic"));
         return;
       }
 
@@ -140,6 +140,8 @@ export function AiImportPanel({
         },
         result.duplicateWarning,
       );
+    } catch {
+      toast.error(tErrors("network"));
     } finally {
       setLoading(false);
     }
@@ -195,8 +197,12 @@ export function AiImportPanel({
       </Tabs>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <label
+          htmlFor="ai-keep-original"
+          className="flex cursor-pointer items-center gap-2 text-sm"
+        >
           <Checkbox
+            id="ai-keep-original"
             checked={keepOriginalLanguage}
             onCheckedChange={(checked) => setKeepOriginalLanguage(Boolean(checked))}
           />
@@ -204,7 +210,11 @@ export function AiImportPanel({
         </label>
 
         <Button type="button" onClick={handleImport} disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
           <span>{loading ? t("parsing") : t("submit")}</span>
         </Button>
       </div>

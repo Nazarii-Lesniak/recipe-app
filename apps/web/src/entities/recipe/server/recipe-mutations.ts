@@ -4,8 +4,8 @@ import {
   recipeCategories,
   recipeIngredients,
   recipeSteps,
-  recipeTags,
   recipes,
+  recipeTags,
   savedRecipes,
   tags,
   users,
@@ -23,15 +23,20 @@ import {
   type UserRole,
 } from "@recipes/domain";
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { revalidateTag } from "next/cache";
 import { AuthError } from "@/core/auth/session";
 import { HttpError } from "@/shared/api/http";
 import type { RecipeCardDto, RecipeDetailDto } from "./recipe-service";
 
-export function assertCanMutateRecipe(
-  authorId: string,
-  userId: string,
-  userRole: UserRole,
-): void {
+function invalidateRecipesCache(): void {
+  try {
+    revalidateTag("recipes", { expire: 0 });
+  } catch {
+    // Ignore when executed outside Next.js request context (e.g. unit tests)
+  }
+}
+
+export function assertCanMutateRecipe(authorId: string, userId: string, userRole: UserRole): void {
   if (authorId !== userId && userRole !== "admin") {
     throw new AuthError("Only the author or admin can modify this recipe", 403);
   }
@@ -103,23 +108,20 @@ async function syncRecipeRelations(
       .returning({ id: tags.id });
 
     if (upserted) {
-      await tx
-        .insert(recipeTags)
-        .values({ recipeId, tagId: upserted.id })
-        .onConflictDoNothing();
+      await tx.insert(recipeTags).values({ recipeId, tagId: upserted.id }).onConflictDoNothing();
     }
   }
 }
 
 export async function createRecipe(userId: string, input: RecipeInput) {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
   const slug = createUniqueSlug(input.title);
 
-  return db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(recipes)
       .values({
@@ -142,13 +144,16 @@ export async function createRecipe(userId: string, input: RecipeInput) {
       .returning();
 
     if (!inserted) {
-      throw new HttpError("Failed to create recipe", 500);
+      throw new HttpError("recipe_create_failed", 500);
     }
 
     await syncRecipeRelations(tx, inserted.id, input);
 
     return inserted;
   });
+
+  invalidateRecipesCache();
+  return created;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -254,12 +259,12 @@ export async function updateRecipe(
   input: RecipeInput,
 ) {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
 
-  return db.transaction(async (tx) => {
+  const updatedRecipe = await db.transaction(async (tx) => {
     const existingRows = await tx
       .select()
       .from(recipes)
@@ -268,7 +273,7 @@ export async function updateRecipe(
 
     const existing = existingRows[0];
     if (!existing) {
-      throw new HttpError("Recipe not found", 404);
+      throw new HttpError("not_found", 404);
     }
 
     assertCanMutateRecipe(existing.authorId, userId, userRole);
@@ -293,7 +298,9 @@ export async function updateRecipe(
             ? "unreviewed"
             : existing.moderationStatus,
         moderationNote:
-          input.visibility === "public" && input.status === "active" ? null : existing.moderationNote,
+          input.visibility === "public" && input.status === "active"
+            ? null
+            : existing.moderationNote,
       })
       .where(eq(recipes.id, recipeId))
       .returning();
@@ -309,6 +316,9 @@ export async function updateRecipe(
 
     return updated ?? existing;
   });
+
+  invalidateRecipesCache();
+  return updatedRecipe;
 }
 
 export async function softDeleteRecipe(
@@ -317,7 +327,7 @@ export async function softDeleteRecipe(
   recipeId: string,
 ): Promise<{ id: string }> {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -329,12 +339,13 @@ export async function softDeleteRecipe(
 
   const row = rows[0];
   if (!row) {
-    throw new HttpError("Recipe not found", 404);
+    throw new HttpError("not_found", 404);
   }
 
   assertCanMutateRecipe(row.authorId, userId, userRole);
 
   await db.update(recipes).set({ deletedAt: new Date() }).where(eq(recipes.id, recipeId));
+  invalidateRecipesCache();
   return { id: row.id };
 }
 
@@ -344,7 +355,7 @@ export async function restoreRecipe(
   recipeId: string,
 ): Promise<{ id: string }> {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -356,23 +367,24 @@ export async function restoreRecipe(
 
   const row = rows[0];
   if (!row) {
-    throw new HttpError("Recipe not found", 404);
+    throw new HttpError("not_found", 404);
   }
 
   assertCanMutateRecipe(row.authorId, userId, userRole);
 
   await db.update(recipes).set({ deletedAt: null }).where(eq(recipes.id, recipeId));
+  invalidateRecipesCache();
   return { id: row.id };
 }
 
 export async function forkRecipe(userId: string, sourceRecipeId: string) {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
 
-  return db.transaction(async (tx) => {
+  const forkedRecipe = await db.transaction(async (tx) => {
     const sourceRows = await tx
       .select()
       .from(recipes)
@@ -381,7 +393,7 @@ export async function forkRecipe(userId: string, sourceRecipeId: string) {
 
     const source = sourceRows[0];
     if (!source) {
-      throw new HttpError("Source recipe not found", 404);
+      throw new HttpError("not_found", 404);
     }
 
     const canFork =
@@ -432,7 +444,7 @@ export async function forkRecipe(userId: string, sourceRecipeId: string) {
       .returning();
 
     if (!forked) {
-      throw new HttpError("Failed to fork recipe", 500);
+      throw new HttpError("recipe_fork_failed", 500);
     }
 
     if (ingredientRows.length > 0) {
@@ -483,24 +495,26 @@ export async function forkRecipe(userId: string, sourceRecipeId: string) {
 
     return forked;
   });
+
+  invalidateRecipesCache();
+  return forkedRecipe;
 }
 
 export async function toggleSaveRecipe(userId: string, recipeId: string, shouldSave: boolean) {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
   if (shouldSave) {
-    await db
-      .insert(savedRecipes)
-      .values({ userId, recipeId })
-      .onConflictDoNothing();
+    await db.insert(savedRecipes).values({ userId, recipeId }).onConflictDoNothing();
   } else {
     await db
       .delete(savedRecipes)
       .where(and(eq(savedRecipes.userId, userId), eq(savedRecipes.recipeId, recipeId)));
   }
+
+  invalidateRecipesCache();
 }
 
 export async function listMyRecipes(
@@ -595,7 +609,13 @@ export async function listMyRecipes(
     })
     .from(recipes)
     .innerJoin(users, eq(recipes.authorId, users.id))
-    .where(and(eq(recipes.authorId, userId), eq(recipes.status, statusFilter), isNull(recipes.deletedAt)))
+    .where(
+      and(
+        eq(recipes.authorId, userId),
+        eq(recipes.status, statusFilter),
+        isNull(recipes.deletedAt),
+      ),
+    )
     .orderBy(desc(recipes.updatedAt));
 
   return rows.map((row) => ({

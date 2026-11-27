@@ -61,6 +61,9 @@ export function createUniqueSlug(title: string, suffix?: string): string {
     const random = Math.random().toString(36).slice(2, 7);
     return `${base}-${random}`;
   }
-  const cleanSuffix = suffix.replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 10);
+  const cleanSuffix = suffix
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase()
+    .slice(0, 10);
   return cleanSuffix ? `${base}-${cleanSuffix}` : base;
 }

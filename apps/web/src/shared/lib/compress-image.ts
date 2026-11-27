@@ -5,7 +5,9 @@ export type ImageValidationResult =
   | { ok: false; reason: "unsupported_type" | "file_too_large" };
 
 export function validateImageFile(file: { type: string; size: number }): ImageValidationResult {
-  if (!ACCEPTED_IMAGE_MIME_TYPES.includes(file.type as (typeof ACCEPTED_IMAGE_MIME_TYPES)[number])) {
+  if (
+    !ACCEPTED_IMAGE_MIME_TYPES.includes(file.type as (typeof ACCEPTED_IMAGE_MIME_TYPES)[number])
+  ) {
     return { ok: false, reason: "unsupported_type" };
   }
   if (file.size <= 0 || file.size > RECIPE_LIMITS.maxImageBytes) {

@@ -3,12 +3,12 @@ import { recipeIngredients, recipeSteps, recipes, savedRecipes } from "@recipes/
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/core/auth/session";
-import { badRequest, handleRouteError } from "@/shared/api/http";
+import { handleRouteError } from "@/shared/api/http";
 
 export async function GET() {
   try {
     if (!isDatabaseConfigured()) {
-      return badRequest("Database is not configured");
+      return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
     }
 
     const user = await requireAuth();
@@ -34,7 +34,9 @@ export async function GET() {
             .where(and(inArray(recipes.id, savedIds), isNull(recipes.deletedAt)))
         : [];
 
-    const allIds = Array.from(new Set([...ownRecipes.map((r) => r.id), ...bookmarkedRecipes.map((r) => r.id)]));
+    const allIds = Array.from(
+      new Set([...ownRecipes.map((r) => r.id), ...bookmarkedRecipes.map((r) => r.id)]),
+    );
 
     const [ingredients, steps] =
       allIds.length > 0

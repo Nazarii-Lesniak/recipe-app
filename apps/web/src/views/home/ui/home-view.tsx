@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Plus, Search, Sparkles, UtensilsCrossed } from "lucide-react";
+import { Plus, Search, Sparkles, UtensilsCrossed } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { type FormEvent, useState } from "react";
 import { Link, useRouter } from "@/core/i18n/navigation";
@@ -63,12 +63,6 @@ export function HomeView({
             <Button type="submit" size="lg">
               {t("heroSearchCta")}
             </Button>
-            <Button type="button" size="lg" variant="outline" asChild>
-              <Link href="/recipes/new">
-                <Plus className="h-4 w-4" />
-                <span>{t("heroCreateCta")}</span>
-              </Link>
-            </Button>
           </form>
         </div>
       </section>
@@ -76,12 +70,6 @@ export function HomeView({
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-editorial text-2xl font-bold">{t("categoriesTitle")}</h2>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/search" className="gap-1">
-              <span>{t("viewAll")}</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9">

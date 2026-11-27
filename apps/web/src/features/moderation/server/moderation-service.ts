@@ -2,8 +2,17 @@ import { getDb, isDatabaseConfigured } from "@recipes/db";
 import { moderationLogs, recipeSteps, recipes, users } from "@recipes/db/schema";
 import type { ModerationActionInput } from "@recipes/domain";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { revalidateTag } from "next/cache";
 import { HttpError } from "@/shared/api/http";
 import { deleteUploadThingFiles } from "@/shared/api/uploadthing";
+
+function invalidateRecipesCache(): void {
+  try {
+    revalidateTag("recipes", { expire: 0 });
+  } catch {
+    // Ignore outside Next.js request context
+  }
+}
 
 export interface ModerationQueueItem {
   id: string;
@@ -69,7 +78,7 @@ export async function reviewRecipe(
   input: ModerationActionInput,
 ): Promise<void> {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -81,7 +90,7 @@ export async function reviewRecipe(
       .limit(1);
 
     if (existing.length === 0) {
-      throw new HttpError("Recipe not found", 404);
+      throw new HttpError("not_found", 404);
     }
 
     await tx
@@ -99,6 +108,8 @@ export async function reviewRecipe(
       reason: input.reason ?? null,
     });
   });
+
+  invalidateRecipesCache();
 }
 
 export async function listDeletedArchive(): Promise<ModerationQueueItem[]> {
@@ -143,7 +154,7 @@ export async function listDeletedArchive(): Promise<ModerationQueueItem[]> {
 
 export async function adminRestoreRecipe(adminId: string, recipeId: string): Promise<void> {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -155,7 +166,7 @@ export async function adminRestoreRecipe(adminId: string, recipeId: string): Pro
       .limit(1);
 
     if (existing.length === 0) {
-      throw new HttpError("Recipe not found", 404);
+      throw new HttpError("not_found", 404);
     }
 
     await tx.update(recipes).set({ deletedAt: null }).where(eq(recipes.id, recipeId));
@@ -167,11 +178,13 @@ export async function adminRestoreRecipe(adminId: string, recipeId: string): Pro
       reason: null,
     });
   });
+
+  invalidateRecipesCache();
 }
 
 export async function hardDeleteRecipe(adminId: string, recipeId: string): Promise<void> {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -189,7 +202,7 @@ export async function hardDeleteRecipe(adminId: string, recipeId: string): Promi
       .limit(1);
 
     if (!target) {
-      throw new HttpError("Recipe not found", 404);
+      throw new HttpError("not_found", 404);
     }
 
     const steps = await tx
@@ -210,4 +223,5 @@ export async function hardDeleteRecipe(adminId: string, recipeId: string): Promi
   });
 
   await deleteUploadThingFiles(keysToDelete);
+  invalidateRecipesCache();
 }

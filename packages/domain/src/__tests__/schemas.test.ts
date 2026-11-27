@@ -150,8 +150,6 @@ describe("recipe and moderation schemas", () => {
     ]);
     expect(normalized.steps).toEqual([{ instruction: "Перемішати все", timerSeconds: null }]);
 
-    expect(() =>
-      normalizeAiLlmRecipe({ ...rawUnconstrained, ingredients: [] }, "uk"),
-    ).toThrow();
+    expect(() => normalizeAiLlmRecipe({ ...rawUnconstrained, ingredients: [] }, "uk")).toThrow();
   });
 });

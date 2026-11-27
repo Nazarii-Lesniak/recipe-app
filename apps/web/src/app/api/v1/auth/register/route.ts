@@ -2,6 +2,7 @@ import { getDb, isDatabaseConfigured } from "@recipes/db";
 import { users } from "@recipes/db/schema";
 import { buildInternalEmail, normalizeUsername, registerSchema } from "@recipes/domain";
 import { eq, sql } from "drizzle-orm";
+import { NextResponse } from "next/server";
 import { auth } from "@/core/auth/auth";
 import {
   badRequest,
@@ -17,7 +18,7 @@ import { checkRateLimit } from "@/shared/api/rate-limit";
 export async function POST(request: Request) {
   try {
     if (!verifySameOrigin(request)) {
-      return forbidden("Invalid request origin");
+      return forbidden("forbidden");
     }
 
     const rate = await checkRateLimit("auth-register", getClientIp(request), 10, 60);
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     if (!isDatabaseConfigured()) {
-      return badRequest("Database is not configured");
+      return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
     }
 
     const body: unknown = await request.json();

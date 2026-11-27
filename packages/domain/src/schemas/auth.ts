@@ -10,10 +10,7 @@ export const usernameSchema = z
   .max(30, "username_too_long")
   .regex(USERNAME_REGEX, "username_invalid_chars");
 
-export const passwordSchema = z
-  .string()
-  .min(8, "password_too_short")
-  .max(128, "password_too_long");
+export const passwordSchema = z.string().min(8, "password_too_short").max(128, "password_too_long");
 
 export const registerSchema = z
   .object({

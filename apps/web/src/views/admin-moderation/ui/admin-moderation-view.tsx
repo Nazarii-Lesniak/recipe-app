@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Link } from "@/core/i18n/navigation";
 import type { ModerationQueueItem } from "@/features/moderation/server/moderation-service";
+import { resolveClientErrorKey } from "@/shared/lib/error-messages";
 import {
   Badge,
   Button,
@@ -34,6 +35,7 @@ export function AdminModerationView({
 }) {
   const t = useTranslations("moderation");
   const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const queryClient = useQueryClient();
 
   const [hideTarget, setHideTarget] = useState<ModerationQueueItem | null>(null);
@@ -60,41 +62,60 @@ export function AdminModerationView({
     },
   });
 
-  const handleModerate = async (recipeId: string, action: "approved" | "hidden", reason?: string) => {
-    const res = await fetch(`/api/v1/moderation/${recipeId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, reason }),
-    });
-    if (!res.ok) {
-      toast.error(tCommon("errorTitle"));
-      return;
+  const handleModerate = async (
+    recipeId: string,
+    action: "approved" | "hidden",
+    reason?: string,
+  ) => {
+    try {
+      const res = await fetch(`/api/v1/moderation/${recipeId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        return;
+      }
+      setHideTarget(null);
+      setHideReason("");
+      await queryClient.invalidateQueries({ queryKey: ["moderation-queue"] });
+      await queryClient.invalidateQueries({ queryKey: ["moderation-count"] });
+    } catch {
+      toast.error(tErrors("network"));
     }
-    setHideTarget(null);
-    setHideReason("");
-    await queryClient.invalidateQueries({ queryKey: ["moderation-queue"] });
-    await queryClient.invalidateQueries({ queryKey: ["moderation-count"] });
   };
 
   const handleRestore = async (recipeId: string) => {
-    const res = await fetch(`/api/v1/admin/archive/${recipeId}/restore`, { method: "POST" });
-    if (!res.ok) {
-      toast.error(tCommon("errorTitle"));
-      return;
+    try {
+      const res = await fetch(`/api/v1/admin/archive/${recipeId}/restore`, { method: "POST" });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-archive"] });
+    } catch {
+      toast.error(tErrors("network"));
     }
-    await queryClient.invalidateQueries({ queryKey: ["admin-archive"] });
   };
 
   const handleHardDelete = async () => {
     if (!hardDeleteTarget) return;
     const id = hardDeleteTarget.id;
     setHardDeleteTarget(null);
-    const res = await fetch(`/api/v1/admin/archive/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      toast.error(tCommon("errorTitle"));
-      return;
+    try {
+      const res = await fetch(`/api/v1/admin/archive/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-archive"] });
+    } catch {
+      toast.error(tErrors("network"));
     }
-    await queryClient.invalidateQueries({ queryKey: ["admin-archive"] });
   };
 
   const queueItems = queueData?.items ?? [];
@@ -126,7 +147,10 @@ export function AdminModerationView({
               <Card key={item.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Link href={`/recipes/${item.slug}`} className="font-editorial text-lg font-semibold hover:text-primary">
+                    <Link
+                      href={`/recipes/${item.slug}`}
+                      className="font-editorial text-lg font-semibold hover:text-primary"
+                    >
                       {item.title}
                     </Link>
                     <Badge variant="muted">{item.locale.toUpperCase()}</Badge>
@@ -157,7 +181,10 @@ export function AdminModerationView({
               </Card>
             ) : (
               archiveItems.map((item) => (
-                <Card key={item.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
+                <Card
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-4 p-4"
+                >
                   <div className="space-y-1">
                     <p className="font-editorial text-lg font-semibold">{item.title}</p>
                     <p className="text-xs text-muted-foreground">@{item.authorUsername}</p>
@@ -167,7 +194,11 @@ export function AdminModerationView({
                       <RotateCcw className="h-4 w-4" />
                       <span>{t("restore")}</span>
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => setHardDeleteTarget(item)}>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setHardDeleteTarget(item)}
+                    >
                       <Trash2 className="h-4 w-4" />
                       <span>{t("hardDelete")}</span>
                     </Button>
@@ -179,7 +210,10 @@ export function AdminModerationView({
         ) : null}
       </Tabs>
 
-      <Dialog open={Boolean(hideTarget)} onOpenChange={(open) => (!open ? setHideTarget(null) : undefined)}>
+      <Dialog
+        open={Boolean(hideTarget)}
+        onOpenChange={(open) => (!open ? setHideTarget(null) : undefined)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("hide")}</DialogTitle>

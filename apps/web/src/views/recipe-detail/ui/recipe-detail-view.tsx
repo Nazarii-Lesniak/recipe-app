@@ -1,6 +1,7 @@
 "use client";
 
 import { scaleRecipeIngredients } from "@recipes/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   ChefHat,
@@ -23,6 +24,7 @@ import { Link, useRouter } from "@/core/i18n/navigation";
 import type { RecipeDetailDto } from "@/entities/recipe/server/recipe-service";
 import { useAuthModalStore } from "@/features/auth-modal/model/use-auth-modal-store";
 import { useServingsStore } from "@/features/scale-servings/model/use-servings-store";
+import { resolveClientErrorKey } from "@/shared/lib/error-messages";
 import { Badge, Button, Card, Checkbox, Separator } from "@/shared/ui";
 import { OnboardingHint } from "@/shared/ui/onboarding-hint";
 import { CookingMode } from "@/widgets/cooking-mode/ui/cooking-mode";
@@ -41,8 +43,10 @@ export function RecipeDetailView({
   const tDiff = useTranslations("difficulty");
   const tUnits = useTranslations("units");
   const tAuth = useTranslations("auth");
+  const tErrors = useTranslations("errors");
   const locale = useLocale();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: session } = useSession();
   const { openLogin } = useAuthModalStore();
 
@@ -92,12 +96,18 @@ export function RecipeDetailView({
         method: nextSaved ? "POST" : "DELETE",
       });
       if (!res.ok) {
-        throw new Error("save_failed");
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        setIsSaved(!nextSaved);
+        setSaveCount((c) => Math.max(0, c + (nextSaved ? -1 : 1)));
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["saved-recipe-ids"] });
+        void queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
       }
     } catch {
       setIsSaved(!nextSaved);
       setSaveCount((c) => Math.max(0, c + (nextSaved ? -1 : 1)));
-      toast.error(tCommon("errorTitle"));
+      toast.error(tErrors("network"));
     }
   };
 
@@ -113,12 +123,15 @@ export function RecipeDetailView({
         method: "POST",
       });
       if (!res.ok) {
-        throw new Error("fork_failed");
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        setForking(false);
+        return;
       }
       const created = (await res.json()) as { id: string };
       router.push(`/recipes/${created.id}/edit`);
     } catch {
-      toast.error(tCommon("errorTitle"));
+      toast.error(tErrors("network"));
       setForking(false);
     }
   };
@@ -145,16 +158,15 @@ export function RecipeDetailView({
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-8 px-4 py-8">
-      <script type="application/ld+json">
-        {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
-      </script>
+      <script type="application/ld+json">{JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>
 
       {recipe.moderationStatus === "hidden" && recipe.moderationNote ? (
         <div
           role="alert"
           className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          <strong>{t("hiddenBadge")}:</strong> {t("hiddenReason", { reason: recipe.moderationNote })}
+          <strong>{t("hiddenBadge")}:</strong>{" "}
+          {t("hiddenReason", { reason: recipe.moderationNote })}
         </div>
       ) : null}
 
@@ -320,7 +332,9 @@ export function RecipeDetailView({
 
             <div className="rounded-lg bg-muted/60 p-3 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">{t("scalerTitle")}</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("scalerTitle")}
+                </span>
                 <div className="flex items-center gap-2 tabular-nums">
                   <Button
                     type="button"

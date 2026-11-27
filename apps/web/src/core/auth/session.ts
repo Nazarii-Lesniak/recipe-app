@@ -1,6 +1,7 @@
 import { isDatabaseConfigured } from "@recipes/db";
 import type { Locale, ThemePreference, UnitSystem, UserRole } from "@recipes/domain";
 import { headers } from "next/headers";
+import { cache } from "react";
 import { auth } from "./auth";
 
 export interface SessionUser {
@@ -23,14 +24,20 @@ export function hasRequiredRole(
   return allowedRoles.includes(userRole);
 }
 
-export async function getServerSession(): Promise<{ user: SessionUser } | null> {
+export const getServerSession = cache(async (): Promise<{ user: SessionUser } | null> => {
   if (!isDatabaseConfigured()) {
     return null;
   }
 
   try {
+    const headerStore = await headers();
+    const cookieHeader = headerStore.get("cookie") ?? "";
+    if (!cookieHeader.includes("better-auth")) {
+      return null;
+    }
+
     const session = await auth.api.getSession({
-      headers: await headers(),
+      headers: headerStore,
     });
     if (!session?.user) {
       return null;
@@ -53,7 +60,7 @@ export async function getServerSession(): Promise<{ user: SessionUser } | null> 
   } catch {
     return null;
   }
-}
+});
 
 export async function requireAuth(): Promise<SessionUser> {
   const session = await getServerSession();

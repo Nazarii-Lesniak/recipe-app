@@ -21,6 +21,7 @@ export function RecipeImageUploader({
 }) {
   const t = useTranslations("editor");
   const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [compressing, setCompressing] = useState(false);
 
@@ -31,8 +32,8 @@ export function RecipeImageUploader({
         onChange({ url: first.ufsUrl, key: first.key });
       }
     },
-    onUploadError: (error) => {
-      toast.error(error.message || tCommon("errorTitle"));
+    onUploadError: () => {
+      toast.error(tErrors("uploadFailed"));
     },
   });
 
@@ -44,9 +45,8 @@ export function RecipeImageUploader({
     try {
       const compressed = await compressImageToWebP(file);
       await startUpload([compressed]);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : tCommon("errorTitle");
-      toast.error(message);
+    } catch {
+      toast.error(tErrors("uploadFailed"));
     } finally {
       setCompressing(false);
       if (inputRef.current) {

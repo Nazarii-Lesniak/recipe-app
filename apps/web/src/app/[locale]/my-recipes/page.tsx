@@ -21,8 +21,7 @@ export default async function MyRecipesPage({
     redirect(`/${locale}/login`);
   }
 
-  const initialTab =
-    query.tab === "saved" || query.tab === "drafts" ? query.tab : "own";
+  const initialTab = query.tab === "saved" || query.tab === "drafts" ? query.tab : "own";
 
   return <MyRecipesView initialTab={initialTab} />;
 }

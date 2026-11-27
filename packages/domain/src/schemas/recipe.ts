@@ -124,7 +124,8 @@ export const moderationActionSchema = z
   })
   .refine(
     (data) =>
-      data.action !== "hidden" || (typeof data.reason === "string" && data.reason.trim().length >= 3),
+      data.action !== "hidden" ||
+      (typeof data.reason === "string" && data.reason.trim().length >= 3),
     {
       message: "moderation_reason_required",
       path: ["reason"],

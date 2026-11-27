@@ -5,13 +5,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { dismissHint, isHintDismissed, type OnboardingHintId } from "@/shared/lib/onboarding-hints";
 
-export function OnboardingHint({
-  hintId,
-  text,
-}: {
-  hintId: OnboardingHintId;
-  text: string;
-}) {
+export function OnboardingHint({ hintId, text }: { hintId: OnboardingHintId; text: string }) {
   const t = useTranslations("common");
   const [visible, setVisible] = useState(false);
 

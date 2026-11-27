@@ -29,11 +29,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Смаколик — Домашня кулінарна книга",
-    template: "%s | Смаколик",
+    default: "Clovekeep — Зручна кулінарна книга",
+    template: "%s | Clovekeep",
   },
   description:
-    "Домашня кулінарна книга з калькулятором порцій, розумним AI-імпортом та адаптацією рецептів.",
+    "Зручна кулінарна книга з калькулятором порцій, розумним AI-імпортом та адаптацією рецептів.",
 };
 
 export function generateStaticParams() {

@@ -16,20 +16,6 @@ export interface ScaledIngredientResult extends ScalableIngredient {
   formattedAmount: string;
 }
 
-const FRACTIONS: ReadonlyArray<{ value: number; glyph: string }> = [
-  { value: 1 / 8, glyph: "⅛" },
-  { value: 1 / 4, glyph: "¼" },
-  { value: 1 / 3, glyph: "⅓" },
-  { value: 3 / 8, glyph: "⅜" },
-  { value: 1 / 2, glyph: "½" },
-  { value: 5 / 8, glyph: "⅝" },
-  { value: 2 / 3, glyph: "⅔" },
-  { value: 3 / 4, glyph: "¾" },
-  { value: 7 / 8, glyph: "⅞" },
-];
-
-const FRACTION_TOLERANCE = 0.04;
-
 export function formatAmount(value: number): string {
   if (!Number.isFinite(value) || value <= 0) {
     return "";
@@ -39,29 +25,12 @@ export function formatAmount(value: number): string {
     return String(Math.round(value));
   }
 
-  const whole = Math.floor(value);
-  const remainder = value - whole;
-
-  if (remainder < FRACTION_TOLERANCE) {
-    return whole > 0 ? String(whole) : formatDecimal(value);
+  if (value >= 1) {
+    return String(Number((Math.round(value * 10) / 10).toFixed(1)));
   }
 
-  if (1 - remainder < FRACTION_TOLERANCE) {
-    return String(whole + 1);
-  }
-
-  for (const fraction of FRACTIONS) {
-    if (Math.abs(remainder - fraction.value) <= FRACTION_TOLERANCE) {
-      return whole > 0 ? `${whole} ${fraction.glyph}` : fraction.glyph;
-    }
-  }
-
-  return formatDecimal(value);
-}
-
-function formatDecimal(value: number): string {
-  const rounded = value >= 100 ? Math.round(value) : Math.round(value * 100) / 100;
-  return Number.isInteger(rounded) ? String(rounded) : String(Number(rounded.toFixed(2)));
+  const rounded = Number((Math.round(value * 100) / 100).toFixed(2));
+  return rounded > 0 ? String(rounded) : "0.01";
 }
 
 export function normalizeMetricUnit(
@@ -150,7 +119,5 @@ export function scaleRecipeIngredients(
   targetServings: number,
   unitSystem: UnitSystem = "metric",
 ): ScaledIngredientResult[] {
-  return ingredients.map((item) =>
-    scaleIngredient(item, baseServings, targetServings, unitSystem),
-  );
+  return ingredients.map((item) => scaleIngredient(item, baseServings, targetServings, unitSystem));
 }

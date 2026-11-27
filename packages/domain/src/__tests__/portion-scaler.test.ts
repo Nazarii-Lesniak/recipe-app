@@ -7,17 +7,18 @@ import {
 } from "../portion-scaler";
 
 describe("formatAmount", () => {
-  it("formats common culinary fractions as unicode glyphs", () => {
-    expect(formatAmount(0.25)).toBe("¼");
-    expect(formatAmount(0.5)).toBe("½");
-    expect(formatAmount(0.75)).toBe("¾");
-    expect(formatAmount(1.333)).toBe("1 ⅓");
-    expect(formatAmount(2.667)).toBe("2 ⅔");
+  it("formats sub-unit amounts as rounded decimals without fractions", () => {
+    expect(formatAmount(0.25)).toBe("0.25");
+    expect(formatAmount(0.5)).toBe("0.5");
+    expect(formatAmount(0.75)).toBe("0.75");
+    expect(formatAmount(0.333)).toBe("0.33");
+    expect(formatAmount(1.333)).toBe("1.3");
+    expect(formatAmount(2.667)).toBe("2.7");
   });
 
   it("formats integers and decimals cleanly", () => {
     expect(formatAmount(2)).toBe("2");
-    expect(formatAmount(1.5)).toBe("1 ½");
+    expect(formatAmount(1.5)).toBe("1.5");
     expect(formatAmount(125.4)).toBe("125");
     expect(formatAmount(0)).toBe("");
     expect(formatAmount(Number.NaN)).toBe("");
@@ -46,7 +47,7 @@ describe("scaleIngredient & scaleRecipeIngredients", () => {
     );
     expect(scaled.scaledAmount).toBe(1.5);
     expect(scaled.displayUnit).toBe("kg");
-    expect(scaled.formattedAmount).toBe("1 ½");
+    expect(scaled.formattedAmount).toBe("1.5");
   });
 
   it("preserves non-scalable ingredients unchanged", () => {

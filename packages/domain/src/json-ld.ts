@@ -96,7 +96,9 @@ function isRecipeType(typeValue: unknown): boolean {
     return typeValue.toLowerCase().includes("recipe");
   }
   if (Array.isArray(typeValue)) {
-    return typeValue.some((item) => typeof item === "string" && item.toLowerCase().includes("recipe"));
+    return typeValue.some(
+      (item) => typeof item === "string" && item.toLowerCase().includes("recipe"),
+    );
   }
   return false;
 }
@@ -181,9 +183,7 @@ function parseIngredientLine(raw: string): AiParsedRecipe["ingredients"][number]
     };
   }
 
-  const match = cleaned.match(
-    /^(\d+(?:\s+\d+\/\d+|\/\d+|[.,]\d+)?|[½¼¾⅓⅔])\s*([^\s\d]+)?\s+(.+)$/,
-  );
+  const match = cleaned.match(/^(\d+(?:\s+\d+\/\d+|\/\d+|[.,]\d+)?|[½¼¾⅓⅔])\s*([^\s\d]+)?\s+(.+)$/);
 
   if (!match) {
     return {
@@ -224,7 +224,9 @@ function parseIngredientLine(raw: string): AiParsedRecipe["ingredients"][number]
   };
 }
 
-function extractInstructions(raw: unknown): Array<{ instruction: string; timerSeconds: number | null }> {
+function extractInstructions(
+  raw: unknown,
+): Array<{ instruction: string; timerSeconds: number | null }> {
   const steps: Array<{ instruction: string; timerSeconds: number | null }> = [];
 
   const pushText = (text: string) => {
@@ -493,19 +495,13 @@ function extractMetaDescriptions(html: string): string {
 
   while (match !== null) {
     const tag = match[0];
-    const key = (
-      readHtmlAttribute(tag, "property") ??
-      readHtmlAttribute(tag, "name") ??
-      ""
-    )
+    const key = (readHtmlAttribute(tag, "property") ?? readHtmlAttribute(tag, "name") ?? "")
       .trim()
       .toLowerCase();
 
     if (RECIPE_META_KEYS.has(key)) {
       const rawContent = readHtmlAttribute(tag, "content");
-      const decoded = rawContent
-        ? decodeHtmlEntities(rawContent).replace(/\s+/g, " ").trim()
-        : "";
+      const decoded = rawContent ? decodeHtmlEntities(rawContent).replace(/\s+/g, " ").trim() : "";
       if (decoded && !seen.has(decoded)) {
         seen.add(decoded);
         collected.push(decoded);
@@ -529,9 +525,7 @@ export function extractReadableTextFromHtml(html: string, maxLength = 12_000): s
   }
 
   const visibleText = decodeHtmlEntities(
-    html
-      .replace(/<(script|style|noscript|svg)\b[\s\S]*?<\/\1>/gi, " ")
-      .replace(/<[^>]+>/g, " "),
+    html.replace(/<(script|style|noscript|svg)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " "),
   )
     .replace(/\s+/g, " ")
     .trim();

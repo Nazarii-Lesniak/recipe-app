@@ -10,14 +10,15 @@ import {
   SUPPORTED_LOCALES,
 } from "@recipes/domain";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, HelpCircle, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useRouter } from "@/core/i18n/navigation";
 import type { CategoryDto, TagDto } from "@/entities/recipe/server/recipe-service";
 import { useAuthModalStore } from "@/features/auth-modal/model/use-auth-modal-store";
+import { resolveClientErrorKey, resolveValidationErrorKey } from "@/shared/lib/error-messages";
 import {
   Badge,
   Button,
@@ -32,6 +33,9 @@ import {
   SelectValue,
   Switch,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@/shared/ui";
 import { useRecipeDraftAutosave } from "../model/use-draft-autosave";
 import { RecipeImageUploader } from "./recipe-image-uploader";
@@ -54,36 +58,42 @@ export function RecipeForm({
   const tDiff = useTranslations("difficulty");
   const tUnits = useTranslations("units");
   const tAuth = useTranslations("auth");
+  const tErrors = useTranslations("errors");
   const locale = useLocale();
   const router = useRouter();
   const openLogin = useAuthModalStore((s) => s.openLogin);
   const idPrefix = useId();
   const [tagInput, setTagInput] = useState("");
 
-  const defaults: RecipeInput = {
-    title: initialValues?.title ?? "",
-    description: initialValues?.description ?? "",
-    coverImageUrl: initialValues?.coverImageUrl ?? null,
-    coverImageKey: initialValues?.coverImageKey ?? null,
-    baseServings: initialValues?.baseServings ?? 4,
-    prepTimeMin: initialValues?.prepTimeMin ?? 15,
-    cookTimeMin: initialValues?.cookTimeMin ?? 30,
-    difficulty: initialValues?.difficulty ?? "medium",
-    visibility: initialValues?.visibility ?? "public",
-    status: initialValues?.status ?? "active",
-    sourceUrl: initialValues?.sourceUrl ?? null,
-    locale: initialValues?.locale ?? (locale === "en" ? "en" : "uk"),
-    categorySlugs: initialValues?.categorySlugs ?? [],
-    tags: initialValues?.tags ?? [],
-    ingredients:
-      initialValues?.ingredients && initialValues.ingredients.length > 0
-        ? initialValues.ingredients
-        : [{ name: "", amount: 100, unit: "g", isScalable: true, groupName: null, note: null }],
-    steps:
-      initialValues?.steps && initialValues.steps.length > 0
-        ? initialValues.steps
-        : [{ instruction: "", timerSeconds: null, imageUrl: null, imageKey: null }],
-  };
+  const buildDefaults = useCallback(
+    (values?: Partial<RecipeInput>): RecipeInput => ({
+      title: values?.title ?? "",
+      description: values?.description ?? "",
+      coverImageUrl: values?.coverImageUrl ?? null,
+      coverImageKey: values?.coverImageKey ?? null,
+      baseServings: values?.baseServings ?? 4,
+      prepTimeMin: values?.prepTimeMin ?? 15,
+      cookTimeMin: values?.cookTimeMin ?? 30,
+      difficulty: values?.difficulty ?? "medium",
+      visibility: values?.visibility ?? "public",
+      status: values?.status ?? "active",
+      sourceUrl: values?.sourceUrl ?? null,
+      locale: values?.locale ?? (locale === "en" ? "en" : "uk"),
+      categorySlugs: values?.categorySlugs ?? [],
+      tags: values?.tags ?? [],
+      ingredients:
+        values?.ingredients && values.ingredients.length > 0
+          ? values.ingredients
+          : [{ name: "", amount: 100, unit: "g", isScalable: true, groupName: null, note: null }],
+      steps:
+        values?.steps && values.steps.length > 0
+          ? values.steps
+          : [{ instruction: "", timerSeconds: null, imageUrl: null, imageKey: null }],
+    }),
+    [locale],
+  );
+
+  const defaults = useMemo(() => buildDefaults(initialValues), [buildDefaults, initialValues]);
 
   const {
     register,
@@ -101,38 +111,20 @@ export function RecipeForm({
 
   useEffect(() => {
     if (initialValues && !recipeId) {
-      reset({
-        ...defaults,
-        ...initialValues,
-        ingredients:
-          initialValues.ingredients && initialValues.ingredients.length > 0
-            ? initialValues.ingredients
-            : defaults.ingredients,
-        steps:
-          initialValues.steps && initialValues.steps.length > 0
-            ? initialValues.steps
-            : defaults.steps,
-      });
+      reset(buildDefaults(initialValues));
     }
-    // Only reset when AI import injects new initialValues on new recipe creation
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialValues]);
+  }, [initialValues, recipeId, reset, buildDefaults]);
 
   const ingredientArray = useFieldArray({ control, name: "ingredients" });
   const stepArray = useFieldArray({ control, name: "steps" });
   const watchedValues = watch();
 
-  const {
-    pendingDraft,
-    lastAutosavedAt,
-    dismissPendingDraft,
-    consumePendingDraft,
-    clearDraft,
-  } = useRecipeDraftAutosave({
-    scopeKey,
-    currentValues: watchedValues as Partial<RecipeInput>,
-    isDirty,
-  });
+  const { pendingDraft, lastAutosavedAt, dismissPendingDraft, consumePendingDraft, clearDraft } =
+    useRecipeDraftAutosave({
+      scopeKey,
+      currentValues: watchedValues as Partial<RecipeInput>,
+      isDirty,
+    });
 
   const { data: tagSuggestions } = useQuery({
     queryKey: ["tag-suggestions", tagInput],
@@ -168,26 +160,30 @@ export function RecipeForm({
       const url = recipeId ? `/api/v1/recipes/by-id/${recipeId}` : "/api/v1/recipes";
       const method = recipeId ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok) {
-        if (res.status === 401) {
-          openLogin(tAuth("authRequiredForAction"));
+        if (!res.ok) {
+          if (res.status === 401) {
+            openLogin(tAuth("authRequiredForAction"));
+            return;
+          }
+          const err = (await res.json().catch(() => ({}))) as { error?: string };
+          toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
           return;
         }
-        const err = (await res.json().catch(() => ({}))) as { error?: string };
-        toast.error(err.error ?? tCommon("errorTitle"));
-        return;
-      }
 
-      const saved = (await res.json()) as { slug: string };
-      clearDraft();
-      router.push(targetStatus === "draft" ? "/my-recipes?tab=drafts" : `/recipes/${saved.slug}`);
-      router.refresh();
+        const saved = (await res.json()) as { slug: string };
+        clearDraft();
+        router.push(targetStatus === "draft" ? "/my-recipes?tab=drafts" : `/recipes/${saved.slug}`);
+        router.refresh();
+      } catch {
+        toast.error(tErrors("network"));
+      }
     });
 
   return (
@@ -245,11 +241,20 @@ export function RecipeForm({
           aria-invalid={errors.title ? "true" : "false"}
           {...register("title")}
         />
-        {errors.title ? <p className="text-xs text-destructive">{errors.title.message}</p> : null}
+        {errors.title ? (
+          <p className="text-xs text-destructive">
+            {tErrors(resolveValidationErrorKey(errors.title.message))}
+          </p>
+        ) : null}
 
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-desc`}>{t("descriptionLabel")}</Label>
           <Textarea id={`${idPrefix}-desc`} rows={3} {...register("description")} />
+          {errors.description ? (
+            <p className="text-xs text-destructive">
+              {tErrors(resolveValidationErrorKey(errors.description.message))}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-1.5">
@@ -373,7 +378,13 @@ export function RecipeForm({
               }}
               placeholder="#швидко"
             />
-            <Button type="button" variant="outline" onClick={() => addTag(tagInput)}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={tagInput.trim().length === 0}
+              aria-label={t("addTagAriaLabel")}
+              onClick={() => addTag(tagInput)}
+            >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -447,6 +458,7 @@ export function RecipeForm({
             >
               <Input
                 placeholder={t("ingredientNamePlaceholder")}
+                aria-invalid={errors.ingredients?.[index]?.name ? "true" : "false"}
                 {...register(`ingredients.${index}.name`)}
               />
               <Input
@@ -480,19 +492,37 @@ export function RecipeForm({
                 {...register(`ingredients.${index}.note`)}
               />
               <div className="flex items-center justify-between gap-2">
-                <label className="flex items-center gap-1.5 text-xs">
-                  <Controller
-                    control={control}
-                    name={`ingredients.${index}.isScalable`}
-                    render={({ field: scaleField }) => (
-                      <Checkbox
-                        checked={scaleField.value}
-                        onCheckedChange={(v) => scaleField.onChange(Boolean(v))}
-                      />
-                    )}
-                  />
-                  <span>{t("scalableLabel")}</span>
-                </label>
+                <div className="flex items-center gap-1.5">
+                  <label
+                    htmlFor={`${idPrefix}-scalable-${index}`}
+                    className="flex cursor-pointer items-center gap-1.5 text-xs"
+                  >
+                    <Controller
+                      control={control}
+                      name={`ingredients.${index}.isScalable`}
+                      render={({ field: scaleField }) => (
+                        <Checkbox
+                          id={`${idPrefix}-scalable-${index}`}
+                          checked={scaleField.value}
+                          onCheckedChange={(v) => scaleField.onChange(Boolean(v))}
+                        />
+                      )}
+                    />
+                    <span>{t("scalableLabel")}</span>
+                  </label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t("scalableTooltip")}
+                        className="inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("scalableTooltip")}</TooltipContent>
+                  </Tooltip>
+                </div>
                 {ingredientArray.fields.length > 1 ? (
                   <Button
                     type="button"
@@ -551,17 +581,43 @@ export function RecipeForm({
               <Textarea
                 rows={2}
                 placeholder={t("stepPlaceholder")}
+                aria-invalid={errors.steps?.[index]?.instruction ? "true" : "false"}
                 {...register(`steps.${index}.instruction`)}
               />
-              <Input
-                type="number"
-                min={0}
-                max={86400}
-                placeholder={t("timerPlaceholder")}
-                className="max-w-44"
-                {...register(`steps.${index}.timerSeconds`, {
-                  setValueAs: (v) => (v === "" || v === null ? null : Number(v)),
-                })}
+              <Controller
+                control={control}
+                name={`steps.${index}.timerSeconds`}
+                render={({ field: timerField }) => {
+                  const minutesValue =
+                    timerField.value && timerField.value > 0
+                      ? Math.round(timerField.value / 60)
+                      : "";
+                  return (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1440}
+                      step={1}
+                      placeholder={t("timerPlaceholder")}
+                      className="max-w-44"
+                      value={minutesValue}
+                      onBlur={timerField.onBlur}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          timerField.onChange(null);
+                          return;
+                        }
+                        const num = Number(raw);
+                        if (!Number.isFinite(num) || num <= 0) {
+                          timerField.onChange(null);
+                          return;
+                        }
+                        timerField.onChange(Math.min(1440, Math.round(num)) * 60);
+                      }}
+                    />
+                  );
+                }}
               />
             </div>
           ))}
