@@ -23,6 +23,7 @@ import { Link, useRouter } from "@/core/i18n/navigation";
 import type { RecipeDetailDto } from "@/entities/recipe/server/recipe-service";
 import { useAuthModalStore } from "@/features/auth-modal/model/use-auth-modal-store";
 import { useServingsStore } from "@/features/scale-servings/model/use-servings-store";
+import { resolveClientErrorKey } from "@/shared/lib/error-messages";
 import { Badge, Button, Card, Checkbox, Separator } from "@/shared/ui";
 import { OnboardingHint } from "@/shared/ui/onboarding-hint";
 import { CookingMode } from "@/widgets/cooking-mode/ui/cooking-mode";
@@ -41,6 +42,7 @@ export function RecipeDetailView({
   const tDiff = useTranslations("difficulty");
   const tUnits = useTranslations("units");
   const tAuth = useTranslations("auth");
+  const tErrors = useTranslations("errors");
   const locale = useLocale();
   const router = useRouter();
   const { data: session } = useSession();
@@ -92,12 +94,15 @@ export function RecipeDetailView({
         method: nextSaved ? "POST" : "DELETE",
       });
       if (!res.ok) {
-        throw new Error("save_failed");
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        setIsSaved(!nextSaved);
+        setSaveCount((c) => Math.max(0, c + (nextSaved ? -1 : 1)));
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
       }
     } catch {
       setIsSaved(!nextSaved);
       setSaveCount((c) => Math.max(0, c + (nextSaved ? -1 : 1)));
-      toast.error(tCommon("errorTitle"));
+      toast.error(tErrors("network"));
     }
   };
 
@@ -113,12 +118,15 @@ export function RecipeDetailView({
         method: "POST",
       });
       if (!res.ok) {
-        throw new Error("fork_failed");
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        setForking(false);
+        return;
       }
       const created = (await res.json()) as { id: string };
       router.push(`/recipes/${created.id}/edit`);
     } catch {
-      toast.error(tCommon("errorTitle"));
+      toast.error(tErrors("network"));
       setForking(false);
     }
   };

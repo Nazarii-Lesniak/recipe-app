@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const sourceUrl = url.searchParams.get("sourceUrl");
     if (!sourceUrl) {
-      return badRequest("sourceUrl is required");
+      return badRequest("validation_failed");
     }
     const existing = await findDuplicateSourceUrl(user.id, sourceUrl);
     return ok({ duplicate: existing });

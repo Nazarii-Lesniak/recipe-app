@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Link } from "@/core/i18n/navigation";
 import type { ModerationQueueItem } from "@/features/moderation/server/moderation-service";
+import { resolveClientErrorKey } from "@/shared/lib/error-messages";
 import {
   Badge,
   Button,
@@ -34,6 +35,7 @@ export function AdminModerationView({
 }) {
   const t = useTranslations("moderation");
   const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const queryClient = useQueryClient();
 
   const [hideTarget, setHideTarget] = useState<ModerationQueueItem | null>(null);
@@ -65,40 +67,55 @@ export function AdminModerationView({
     action: "approved" | "hidden",
     reason?: string,
   ) => {
-    const res = await fetch(`/api/v1/moderation/${recipeId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, reason }),
-    });
-    if (!res.ok) {
-      toast.error(tCommon("errorTitle"));
-      return;
+    try {
+      const res = await fetch(`/api/v1/moderation/${recipeId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        return;
+      }
+      setHideTarget(null);
+      setHideReason("");
+      await queryClient.invalidateQueries({ queryKey: ["moderation-queue"] });
+      await queryClient.invalidateQueries({ queryKey: ["moderation-count"] });
+    } catch {
+      toast.error(tErrors("network"));
     }
-    setHideTarget(null);
-    setHideReason("");
-    await queryClient.invalidateQueries({ queryKey: ["moderation-queue"] });
-    await queryClient.invalidateQueries({ queryKey: ["moderation-count"] });
   };
 
   const handleRestore = async (recipeId: string) => {
-    const res = await fetch(`/api/v1/admin/archive/${recipeId}/restore`, { method: "POST" });
-    if (!res.ok) {
-      toast.error(tCommon("errorTitle"));
-      return;
+    try {
+      const res = await fetch(`/api/v1/admin/archive/${recipeId}/restore`, { method: "POST" });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-archive"] });
+    } catch {
+      toast.error(tErrors("network"));
     }
-    await queryClient.invalidateQueries({ queryKey: ["admin-archive"] });
   };
 
   const handleHardDelete = async () => {
     if (!hardDeleteTarget) return;
     const id = hardDeleteTarget.id;
     setHardDeleteTarget(null);
-    const res = await fetch(`/api/v1/admin/archive/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      toast.error(tCommon("errorTitle"));
-      return;
+    try {
+      const res = await fetch(`/api/v1/admin/archive/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-archive"] });
+    } catch {
+      toast.error(tErrors("network"));
     }
-    await queryClient.invalidateQueries({ queryKey: ["admin-archive"] });
   };
 
   const queueItems = queueData?.items ?? [];

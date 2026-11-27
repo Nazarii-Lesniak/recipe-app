@@ -15,7 +15,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const user = await requireAuth();
     const recipe = await getRecipeByIdForEdit(id, user.id, user.role);
     if (!recipe) {
-      return notFound("Recipe not found");
+      return notFound("not_found");
     }
     return ok(recipe);
   } catch (error) {
@@ -26,7 +26,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     if (!verifySameOrigin(request)) {
-      return forbidden("Invalid request origin");
+      return forbidden("forbidden");
     }
     const { id } = await context.params;
     const user = await requireAuth();
@@ -52,7 +52,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     if (!verifySameOrigin(request)) {
-      return forbidden("Invalid request origin");
+      return forbidden("forbidden");
     }
     const { id } = await context.params;
     const user = await requireAuth();

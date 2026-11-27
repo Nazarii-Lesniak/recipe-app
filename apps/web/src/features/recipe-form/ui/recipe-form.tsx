@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useRouter } from "@/core/i18n/navigation";
 import type { CategoryDto, TagDto } from "@/entities/recipe/server/recipe-service";
 import { useAuthModalStore } from "@/features/auth-modal/model/use-auth-modal-store";
+import { resolveClientErrorKey, resolveValidationErrorKey } from "@/shared/lib/error-messages";
 import {
   Badge,
   Button,
@@ -54,6 +55,7 @@ export function RecipeForm({
   const tDiff = useTranslations("difficulty");
   const tUnits = useTranslations("units");
   const tAuth = useTranslations("auth");
+  const tErrors = useTranslations("errors");
   const locale = useLocale();
   const router = useRouter();
   const openLogin = useAuthModalStore((s) => s.openLogin);
@@ -155,26 +157,30 @@ export function RecipeForm({
       const url = recipeId ? `/api/v1/recipes/by-id/${recipeId}` : "/api/v1/recipes";
       const method = recipeId ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok) {
-        if (res.status === 401) {
-          openLogin(tAuth("authRequiredForAction"));
+        if (!res.ok) {
+          if (res.status === 401) {
+            openLogin(tAuth("authRequiredForAction"));
+            return;
+          }
+          const err = (await res.json().catch(() => ({}))) as { error?: string };
+          toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
           return;
         }
-        const err = (await res.json().catch(() => ({}))) as { error?: string };
-        toast.error(err.error ?? tCommon("errorTitle"));
-        return;
-      }
 
-      const saved = (await res.json()) as { slug: string };
-      clearDraft();
-      router.push(targetStatus === "draft" ? "/my-recipes?tab=drafts" : `/recipes/${saved.slug}`);
-      router.refresh();
+        const saved = (await res.json()) as { slug: string };
+        clearDraft();
+        router.push(targetStatus === "draft" ? "/my-recipes?tab=drafts" : `/recipes/${saved.slug}`);
+        router.refresh();
+      } catch {
+        toast.error(tErrors("network"));
+      }
     });
 
   return (
@@ -232,11 +238,20 @@ export function RecipeForm({
           aria-invalid={errors.title ? "true" : "false"}
           {...register("title")}
         />
-        {errors.title ? <p className="text-xs text-destructive">{errors.title.message}</p> : null}
+        {errors.title ? (
+          <p className="text-xs text-destructive">
+            {tErrors(resolveValidationErrorKey(errors.title.message))}
+          </p>
+        ) : null}
 
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-desc`}>{t("descriptionLabel")}</Label>
           <Textarea id={`${idPrefix}-desc`} rows={3} {...register("description")} />
+          {errors.description ? (
+            <p className="text-xs text-destructive">
+              {tErrors(resolveValidationErrorKey(errors.description.message))}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-1.5">
@@ -434,6 +449,7 @@ export function RecipeForm({
             >
               <Input
                 placeholder={t("ingredientNamePlaceholder")}
+                aria-invalid={errors.ingredients?.[index]?.name ? "true" : "false"}
                 {...register(`ingredients.${index}.name`)}
               />
               <Input
@@ -542,6 +558,7 @@ export function RecipeForm({
               <Textarea
                 rows={2}
                 placeholder={t("stepPlaceholder")}
+                aria-invalid={errors.steps?.[index]?.instruction ? "true" : "false"}
                 {...register(`steps.${index}.instruction`)}
               />
               <Input

@@ -31,7 +31,7 @@ export function AiImportPanel({
 }) {
   const t = useTranslations("aiImport");
   const tAuth = useTranslations("auth");
-  const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const locale = useLocale();
   const openLogin = useAuthModalStore((s) => s.openLogin);
 
@@ -99,7 +99,7 @@ export function AiImportPanel({
           err.error && err.error in errorKeyMap
             ? errorKeyMap[err.error as keyof typeof errorKeyMap]
             : null;
-        toast.error(messageKey ? t(messageKey) : tCommon("errorTitle"));
+        toast.error(messageKey ? t(messageKey) : tErrors("generic"));
         return;
       }
 
@@ -140,6 +140,8 @@ export function AiImportPanel({
         },
         result.duplicateWarning,
       );
+    } catch {
+      toast.error(tErrors("network"));
     } finally {
       setLoading(false);
     }

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import type { SessionUser } from "@/core/auth/session";
 import { Link, usePathname, useRouter } from "@/core/i18n/navigation";
 import { useServingsStore } from "@/features/scale-servings/model/use-servings-store";
+import { resolveClientErrorKey } from "@/shared/lib/error-messages";
 import {
   Button,
   Card,
@@ -38,6 +39,7 @@ export function ProfileView({ user }: { user: SessionUser }) {
   const tAuth = useTranslations("auth");
   const tThemes = useTranslations("themes");
   const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const { setTheme } = useTheme();
   const setUnitSystem = useServingsStore((s) => s.setUnitSystem);
   const router = useRouter();
@@ -62,34 +64,38 @@ export function ProfileView({ user }: { user: SessionUser }) {
   });
 
   const onSubmit = async (values: ProfileUpdateInput) => {
-    const res = await fetch("/api/v1/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    });
+    try {
+      const res = await fetch("/api/v1/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
 
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      if (payload.error === "username_taken") {
-        toast.error(tAuth("usernameTaken"));
-      } else {
-        toast.error(payload.error ?? tCommon("errorTitle"));
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        if (payload.error === "username_taken") {
+          toast.error(tAuth("usernameTaken"));
+        } else {
+          toast.error(tErrors(resolveClientErrorKey(payload.error, res.status)));
+        }
+        return;
       }
-      return;
-    }
 
-    if (values.preferredTheme) {
-      setTheme(values.preferredTheme);
-    }
-    if (values.preferredUnits) {
-      setUnitSystem(values.preferredUnits);
-    }
-    toast.success(t("saveSuccess"));
+      if (values.preferredTheme) {
+        setTheme(values.preferredTheme);
+      }
+      if (values.preferredUnits) {
+        setUnitSystem(values.preferredUnits);
+      }
+      toast.success(t("saveSuccess"));
 
-    if (values.preferredLocale) {
-      router.replace(pathname, { locale: values.preferredLocale });
-    } else {
-      router.refresh();
+      if (values.preferredLocale) {
+        router.replace(pathname, { locale: values.preferredLocale });
+      } else {
+        router.refresh();
+      }
+    } catch {
+      toast.error(tErrors("network"));
     }
   };
 

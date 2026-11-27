@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Link } from "@/core/i18n/navigation";
 import type { RecipeCardDto } from "@/entities/recipe/server/recipe-service";
 import { RecipeCard } from "@/entities/recipe/ui/recipe-card";
+import { resolveClientErrorKey } from "@/shared/lib/error-messages";
 import {
   Badge,
   Button,
@@ -31,6 +32,7 @@ export function MyRecipesView({ initialTab = "own" }: { initialTab?: MyTab }) {
   const t = useTranslations("myRecipes");
   const tRecipe = useTranslations("recipe");
   const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<MyTab>(initialTab);
   const [deleteTarget, setDeleteTarget] = useState<RecipeCardDto | null>(null);
@@ -49,32 +51,44 @@ export function MyRecipesView({ initialTab = "own" }: { initialTab?: MyTab }) {
     const target = deleteTarget;
     setDeleteTarget(null);
 
-    const res = await fetch(`/api/v1/recipes/by-id/${target.id}`, {
-      method: "DELETE",
-    });
+    try {
+      const res = await fetch(`/api/v1/recipes/by-id/${target.id}`, {
+        method: "DELETE",
+      });
 
-    if (!res.ok) {
-      toast.error(tCommon("errorTitle"));
-      return;
-    }
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(tErrors(resolveClientErrorKey(err.error, res.status)));
+        return;
+      }
 
-    await queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
 
-    toast(t("deletedToast", { title: target.title }), {
-      duration: 5000,
-      action: {
-        label: t("undo"),
-        onClick: async () => {
-          const restoreRes = await fetch(`/api/v1/recipes/by-id/${target.id}/restore`, {
-            method: "POST",
-          });
-          if (restoreRes.ok) {
-            await queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
-            toast.success(t("restoredToast"));
-          }
+      toast(t("deletedToast", { title: target.title }), {
+        duration: 5000,
+        action: {
+          label: t("undo"),
+          onClick: async () => {
+            try {
+              const restoreRes = await fetch(`/api/v1/recipes/by-id/${target.id}/restore`, {
+                method: "POST",
+              });
+              if (restoreRes.ok) {
+                await queryClient.invalidateQueries({ queryKey: ["my-recipes"] });
+                toast.success(t("restoredToast"));
+              } else {
+                const err = (await restoreRes.json().catch(() => ({}))) as { error?: string };
+                toast.error(tErrors(resolveClientErrorKey(err.error, restoreRes.status)));
+              }
+            } catch {
+              toast.error(tErrors("network"));
+            }
+          },
         },
-      },
-    });
+      });
+    } catch {
+      toast.error(tErrors("network"));
+    }
   };
 
   const renderGrid = (

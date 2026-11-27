@@ -6,7 +6,7 @@ import { forbidden, handleRouteError, ok, verifySameOrigin } from "@/shared/api/
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     if (!verifySameOrigin(request)) {
-      return forbidden("Invalid request origin");
+      return forbidden("forbidden");
     }
     const moderator = await requireRole(["moderator", "admin"]);
     const { id } = await context.params;

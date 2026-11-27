@@ -8,7 +8,7 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
     const session = await getServerSession();
     const recipe = await getRecipeBySlug(slug, session?.user.id, session?.user.role);
     if (!recipe) {
-      return notFound("Recipe not found");
+      return notFound("not_found");
     }
     return ok(recipe);
   } catch (error) {

@@ -2,6 +2,7 @@ import { getDb, isDatabaseConfigured } from "@recipes/db";
 import { users } from "@recipes/db/schema";
 import { normalizeUsername, profileUpdateSchema } from "@recipes/domain";
 import { and, eq, ne, sql } from "drizzle-orm";
+import { NextResponse } from "next/server";
 import { requireAuth } from "@/core/auth/session";
 import { badRequest, forbidden, handleRouteError, ok, verifySameOrigin } from "@/shared/api/http";
 
@@ -17,10 +18,10 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     if (!verifySameOrigin(request)) {
-      return forbidden("Invalid request origin");
+      return forbidden("forbidden");
     }
     if (!isDatabaseConfigured()) {
-      return badRequest("Database is not configured");
+      return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
     }
 
     const user = await requireAuth();

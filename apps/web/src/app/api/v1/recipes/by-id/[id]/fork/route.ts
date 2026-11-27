@@ -5,7 +5,7 @@ import { created, forbidden, handleRouteError, verifySameOrigin } from "@/shared
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     if (!verifySameOrigin(request)) {
-      return forbidden("Invalid request origin");
+      return forbidden("forbidden");
     }
     const { id } = await context.params;
     const user = await requireAuth();

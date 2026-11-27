@@ -8,7 +8,7 @@ import { badRequest, handleRouteError } from "@/shared/api/http";
 export async function GET() {
   try {
     if (!isDatabaseConfigured()) {
-      return badRequest("Database is not configured");
+      return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
     }
 
     const user = await requireAuth();

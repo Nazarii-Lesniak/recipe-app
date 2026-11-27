@@ -106,7 +106,7 @@ async function syncRecipeRelations(
 
 export async function createRecipe(userId: string, input: RecipeInput) {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -135,7 +135,7 @@ export async function createRecipe(userId: string, input: RecipeInput) {
       .returning();
 
     if (!inserted) {
-      throw new HttpError("Failed to create recipe", 500);
+      throw new HttpError("recipe_create_failed", 500);
     }
 
     await syncRecipeRelations(tx, inserted.id, input);
@@ -247,7 +247,7 @@ export async function updateRecipe(
   input: RecipeInput,
 ) {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -261,7 +261,7 @@ export async function updateRecipe(
 
     const existing = existingRows[0];
     if (!existing) {
-      throw new HttpError("Recipe not found", 404);
+      throw new HttpError("not_found", 404);
     }
 
     assertCanMutateRecipe(existing.authorId, userId, userRole);
@@ -312,7 +312,7 @@ export async function softDeleteRecipe(
   recipeId: string,
 ): Promise<{ id: string }> {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -324,7 +324,7 @@ export async function softDeleteRecipe(
 
   const row = rows[0];
   if (!row) {
-    throw new HttpError("Recipe not found", 404);
+    throw new HttpError("not_found", 404);
   }
 
   assertCanMutateRecipe(row.authorId, userId, userRole);
@@ -339,7 +339,7 @@ export async function restoreRecipe(
   recipeId: string,
 ): Promise<{ id: string }> {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -351,7 +351,7 @@ export async function restoreRecipe(
 
   const row = rows[0];
   if (!row) {
-    throw new HttpError("Recipe not found", 404);
+    throw new HttpError("not_found", 404);
   }
 
   assertCanMutateRecipe(row.authorId, userId, userRole);
@@ -362,7 +362,7 @@ export async function restoreRecipe(
 
 export async function forkRecipe(userId: string, sourceRecipeId: string) {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();
@@ -376,7 +376,7 @@ export async function forkRecipe(userId: string, sourceRecipeId: string) {
 
     const source = sourceRows[0];
     if (!source) {
-      throw new HttpError("Source recipe not found", 404);
+      throw new HttpError("not_found", 404);
     }
 
     const canFork =
@@ -427,7 +427,7 @@ export async function forkRecipe(userId: string, sourceRecipeId: string) {
       .returning();
 
     if (!forked) {
-      throw new HttpError("Failed to fork recipe", 500);
+      throw new HttpError("recipe_fork_failed", 500);
     }
 
     if (ingredientRows.length > 0) {
@@ -482,7 +482,7 @@ export async function forkRecipe(userId: string, sourceRecipeId: string) {
 
 export async function toggleSaveRecipe(userId: string, recipeId: string, shouldSave: boolean) {
   if (!isDatabaseConfigured()) {
-    throw new HttpError("Database is not configured", 503);
+    throw new HttpError("service_unavailable", 503);
   }
 
   const db = getDb();

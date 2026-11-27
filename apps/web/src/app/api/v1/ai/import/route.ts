@@ -14,7 +14,7 @@ import { checkRateLimit } from "@/shared/api/rate-limit";
 export async function POST(request: Request) {
   try {
     if (!verifySameOrigin(request)) {
-      return forbidden("Invalid request origin");
+      return forbidden("forbidden");
     }
 
     const user = await requireAuth();
